@@ -54,18 +54,18 @@ export default function SkillsSection() {
   const currentSkills = getCategorySkills(activeCategory);
 
   return (
-    <section id="skills" className="min-h-screen pt-24 pb-16 px-6 relative">
+    <section id="skills" className="min-h-screen pt-24 lg:pt-20 pb-16 px-6 lg:px-8 relative">
       <div className="max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12"
+          className="mb-10"
         >
-          <h2 className="font-display font-bold text-4xl text-text mb-3">
+          <h2 className="font-display font-bold text-3xl lg:text-4xl text-text mb-3">
             Technical Skills
           </h2>
-          <p className="text-text-dim">
+          <p className="text-sm text-text-dim font-mono">
             Technologies accumulated through projects and experience
           </p>
         </motion.div>
@@ -76,7 +76,7 @@ export default function SkillsSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="flex flex-wrap gap-2 mb-10"
+          className="flex flex-wrap gap-1.5 sm:gap-2 mb-6 sm:mb-10"
         >
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon;
@@ -86,15 +86,15 @@ export default function SkillsSection() {
                 key={cat.key}
                 onClick={() => setActiveCategory(cat.key)}
                 className={`
-                  inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-mono transition-all duration-200
+                  inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-mono transition-all duration-200 whitespace-nowrap
                   ${isActive 
                     ? 'bg-accent text-bg' 
                     : 'bg-surface border border-border text-text-dim hover:text-text hover:border-accent/40'
                   }
                 `}
               >
-                <Icon size={14} />
-                {cat.label}
+                <Icon size={12} className="sm:w-[14px] sm:h-[14px]" />
+                <span className="hidden xs:inline">{cat.label}</span>
               </button>
             );
           })}

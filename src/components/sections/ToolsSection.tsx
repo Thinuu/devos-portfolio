@@ -120,18 +120,18 @@ export default function ToolsSection() {
   }, [activeCategory, searchQuery]);
 
   return (
-    <section id="tools" className="min-h-screen pt-24 pb-16 px-6 relative">
-      <div className="max-w-5xl mx-auto">
+    <section id="tools" className="min-h-screen pt-24 lg:pt-20 pb-16 px-6 lg:px-8 relative">
+      <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12"
+          className="mb-10"
         >
-          <h2 className="font-display font-bold text-4xl text-text mb-3">
+          <h2 className="font-display font-bold text-3xl lg:text-4xl text-text mb-3">
             Developer Toolkit
           </h2>
-          <p className="text-text-dim">
+          <p className="text-sm text-text-dim font-mono">
             Software, platforms, and tools I use to build and deploy projects
           </p>
         </motion.div>
@@ -142,15 +142,15 @@ export default function ToolsSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="relative mb-6"
+          className="relative mb-4 sm:mb-6"
         >
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim" size={16} />
+          <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-text-dim" size={16} />
           <input
             type="text"
             placeholder="Search tools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 rounded-lg bg-surface border border-border text-text placeholder-text-dim focus:border-accent/50 focus:outline-none transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-lg bg-surface border border-border text-text placeholder-text-dim focus:border-accent/50 focus:outline-none transition-colors text-sm"
           />
         </motion.div>
 
@@ -160,7 +160,7 @@ export default function ToolsSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.15 }}
-          className="flex flex-wrap gap-2 mb-10"
+          className="flex flex-wrap gap-1.5 sm:gap-2 mb-6 sm:mb-10"
         >
           {categories.map((cat) => {
             const Icon = cat.icon;
@@ -170,15 +170,15 @@ export default function ToolsSection() {
                 key={cat.key}
                 onClick={() => setActiveCategory(cat.key)}
                 className={`
-                  inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono transition-all duration-200
+                  inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-mono transition-all duration-200
                   ${isActive 
                     ? 'bg-accent text-bg' 
                     : 'bg-surface border border-border text-text-dim hover:text-text hover:border-accent/40'
                   }
                 `}
               >
-                <Icon size={12} />
-                {cat.label}
+                <Icon size={12} className="sm:w-[14px] sm:h-[14px]" />
+                <span className="hidden xs:inline">{cat.label}</span>
               </button>
             );
           })}
@@ -189,7 +189,7 @@ export default function ToolsSection() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="mb-4 text-xs text-text-dim font-mono"
+          className="mb-3 sm:mb-4 text-xs sm:text-sm text-text-dim font-mono"
         >
           {filteredTools.length} tool{filteredTools.length !== 1 ? 's' : ''}
         </motion.div>
@@ -197,7 +197,7 @@ export default function ToolsSection() {
         {/* Tools grid */}
         <motion.div
           layout
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3"
         >
           <AnimatePresence mode="popLayout">
             {filteredTools.map((tool) => {

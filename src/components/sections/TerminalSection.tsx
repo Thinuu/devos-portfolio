@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TerminalSquare } from 'lucide-react';
 import { portfolioData } from '@/lib/data';
 
 interface HistoryLine {
@@ -78,6 +77,7 @@ export default function TerminalSection() {
       case 'contact':
         newHistory.push({ type: 'output', text: '' });
         newHistory.push({ type: 'output', text: `Email:    ${portfolioData.personal.email}` });
+        newHistory.push({ type: 'output', text: `Phone:    ${portfolioData.personal.phone}` });
         newHistory.push({ type: 'output', text: `GitHub:   ${portfolioData.personal.github}` });
         newHistory.push({ type: 'output', text: `LinkedIn: ${portfolioData.personal.linkedin}` });
         newHistory.push({ type: 'output', text: '' });
@@ -104,19 +104,18 @@ export default function TerminalSection() {
   };
 
   return (
-    <section id="terminal" className="min-h-screen pt-24 pb-16 px-6 relative flex items-center">
+    <section id="terminal" className="min-h-screen pt-24 lg:pt-20 pb-16 px-6 lg:px-8 relative flex items-center">
       <div className="max-w-3xl mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-8"
+          className="mb-10"
         >
-          <TerminalSquare size={20} className="text-accent mb-3" />
-          <h2 className="font-display font-bold text-4xl text-text mb-2">
+          <h2 className="font-display font-bold text-3xl lg:text-4xl text-text mb-3 flex items-center gap-3">
             Terminal
           </h2>
-          <p className="text-text-dim">
+          <p className="text-sm text-text-dim font-mono">
             Interactive command line interface
           </p>
         </motion.div>
@@ -125,7 +124,7 @@ export default function TerminalSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="rounded-lg bg-surface border border-border overflow-hidden"
+          className="rounded-lg bg-surface border border-border overflow-hidden shadow-xl shadow-accent/5"
           onClick={() => inputRef.current?.focus()}
         >
           {/* Window chrome */}
@@ -139,9 +138,9 @@ export default function TerminalSection() {
           </div>
 
           {/* Terminal body */}
-          <div className="p-5 h-72 overflow-y-auto font-mono text-sm">
+          <div className="p-5 h-80 overflow-y-auto font-mono text-sm">
             {history.map((line, i) => (
-              <div key={i} className="mb-1 leading-6">
+              <div key={i} className="mb-1 leading-5 sm:leading-6">
                 {line.type === 'input' ? (
                   <div className="flex gap-2">
                     <span className="text-accent">$</span>
@@ -163,7 +162,7 @@ export default function TerminalSection() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') runCommand(input);
                 }}
-                className="bg-transparent border-none outline-none flex-1 text-text font-mono"
+                className="bg-transparent border-none outline-none flex-1 text-text font-mono text-sm"
                 autoComplete="off"
                 spellCheck={false}
                 aria-label="Terminal command input"
