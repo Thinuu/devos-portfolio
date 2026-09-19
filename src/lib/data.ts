@@ -7,6 +7,7 @@ export const portfolioData = {
     location: 'Sri Lanka',
     timezone: 'GMT+5:30',
     email: 'thinuupadya13@gmail.com',
+    phone: '+94 75 059 0315',
     github: 'https://github.com/Thinuu',
     linkedin: 'https://www.linkedin.com/in/thinu-upadya/',
     available: true,

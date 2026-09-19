@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Mail, MapPin, Github, Linkedin, ArrowUpRight, Code2 } from 'lucide-react';
+import { Mail, MapPin, Github, Linkedin, ArrowUpRight, Code2, Phone } from 'lucide-react';
 import { portfolioData } from '@/lib/data';
 import TULogo from '@/components/brand/TULogo';
 
@@ -29,7 +29,7 @@ export default function ContactSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="grid sm:grid-cols-2 gap-4"
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           {/* Email */}
           <a
@@ -44,6 +44,25 @@ export default function ContactSection() {
                 <div className="text-xs font-mono text-text-dim mb-1">Email</div>
                 <div className="text-text group-hover:text-accent transition-colors">
                   {personal.email}
+                </div>
+              </div>
+              <ArrowUpRight size={16} className="text-text-dim group-hover:text-accent transition-colors" />
+            </div>
+          </a>
+
+          {/* Phone */}
+          <a
+            href={`tel:${personal.phone}`}
+            className="contact-card p-6 rounded-lg bg-surface border border-border hover:border-accent/40 transition-all duration-200 group block"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                <Phone size={20} className="text-accent" />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-mono text-text-dim mb-1">Phone</div>
+                <div className="text-text group-hover:text-accent transition-colors">
+                  {personal.phone}
                 </div>
               </div>
               <ArrowUpRight size={16} className="text-text-dim group-hover:text-accent transition-colors" />

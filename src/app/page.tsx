@@ -11,6 +11,7 @@ import WorkflowSection from '@/components/sections/WorkflowSection';
 import ExperienceSection from '@/components/sections/ExperienceSection';
 import TerminalSection from '@/components/sections/TerminalSection';
 import ContactSection from '@/components/sections/ContactSection';
+import AnimatedBackground from '@/components/ui/AnimatedBackground';
 
 export default function Home() {
   const [booted, setBooted] = useState(false);
@@ -74,12 +75,12 @@ export default function Home() {
 
   return (
     <main className="relative">
+      <AnimatedBackground />
       {!booted && <BootSequence onComplete={() => setBooted(true)} />}
 
       {booted && (
         <>
           <Taskbar activeWindow={activeSection} onNavigate={handleNavigate} />
-          <div className="grid-bg fixed inset-0 opacity-30 pointer-events-none -z-10" />
           <HomeSection />
           <ProjectsSection />
           <SkillsSection />

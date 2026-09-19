@@ -113,14 +113,14 @@ export default function HomeSection() {
                 {/*
                   Profile Photo Placeholder
                   =========================
-                  Add your photo to: public/images/thinu-profile.jpg
+                  Add your photo to: public/images/thinu-profile.png
                   Supported formats: .jpg, .jpeg, .png, .webp
                   Recommended: 400x400px or larger, portrait orientation
                   
                   If no image is present, initials will be displayed.
                 */}
                 <img
-                  src="/images/thinu-profile.jpg"
+                  src="/images/thinu-profile.png"
                   alt="Thinu Upadya - Profile Photo"
                   className="w-full h-full object-cover"
                   onError={(e) => {
