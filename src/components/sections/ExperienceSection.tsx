@@ -8,30 +8,30 @@ const { experience, education } = portfolioData;
 
 export default function ExperienceSection() {
   return (
-    <section id="experience" className="min-h-screen pt-24 pb-16 px-6 relative">
+    <section id="experience" className="min-h-screen pt-24 lg:pt-20 pb-16 px-6 lg:px-8 relative">
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12"
+          className="mb-10"
         >
-          <h2 className="font-display font-bold text-4xl text-text mb-3">
+          <h2 className="font-display font-bold text-3xl lg:text-4xl text-text mb-3">
             Experience & Education
           </h2>
-          <p className="text-text-dim">
+          <p className="text-sm text-text-dim font-mono">
             Professional journey and academic background
           </p>
         </motion.div>
 
         {/* Work Experience */}
-        <div className="mb-16">
-          <h3 className="font-mono text-sm text-accent uppercase tracking-wide mb-6 flex items-center gap-2">
+        <div className="mb-10 sm:mb-16">
+          <h3 className="font-mono text-xs sm:text-sm text-accent uppercase tracking-wide mb-4 sm:mb-6 flex items-center gap-2">
             <Briefcase size={14} />
             Work Experience
           </h3>
 
-          <div className="relative pl-8">
+          <div className="relative pl-6 sm:pl-8">
             {/* Timeline line */}
             <div className="absolute left-[11px] top-2 bottom-0 w-px bg-border" />
 

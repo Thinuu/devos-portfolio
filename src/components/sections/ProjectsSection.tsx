@@ -12,24 +12,24 @@ export default function ProjectsSection() {
   const active = projects.find((p) => p.id === activeId);
 
   return (
-    <section id="projects" className="min-h-screen pt-24 pb-16 px-6 relative">
+    <section id="projects" className="min-h-screen pt-24 lg:pt-20 pb-16 px-6 lg:px-8 relative">
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12"
+          className="mb-10"
         >
-          <h2 className="font-display font-bold text-4xl text-text mb-3">
+          <h2 className="font-display font-bold text-3xl lg:text-4xl text-text mb-3">
             Selected Projects
           </h2>
-          <p className="text-text-dim">
-            {projects.length} projects across full-stack, IoT, and research
+          <p className="text-sm text-text-dim font-mono">
+            {projects.length} project{projects.length !== 1 ? 's' : ''} across full-stack, IoT, and research
           </p>
         </motion.div>
 
         {/* Project grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {projects.map((project, i) => (
             <motion.button
               key={project.id}
