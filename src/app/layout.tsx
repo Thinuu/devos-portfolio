@@ -1,15 +1,43 @@
 import type { Metadata } from 'next';
 import '@/styles/globals.css';
+import { portfolioData } from '@/lib/data';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: portfolioData.personal.name,
+  jobTitle: 'Full-Stack Developer & Software Engineer',
+  url: 'https://thinu-mu.vercel.app',
+  image: 'https://thinu-mu.vercel.app/images/thinu-profile.png',
+  sameAs: [portfolioData.personal.github, portfolioData.personal.linkedin],
+};
 
 export const metadata: Metadata = {
-  title: 'Thinu Upadya | Software Engineer',
-  description: 'Associate Software Engineer at Cybernetics IT Consultancy. Full-Stack Developer specializing in React, Node.js, MongoDB, and enterprise WordPress solutions.',
-  keywords: ['Thinu Upadya', 'Software Engineer', 'Full-Stack Developer', 'MERN', 'React', 'Node.js', 'Sri Lanka'],
+  metadataBase: new URL('https://thinu-mu.vercel.app'),
+  title: 'Thinu Upadya | Full-Stack Developer & Software Engineer',
+  description: 'Explore the portfolio of Thinu Upadya, a full-stack developer and software engineer building modern web applications, digital products, and thoughtful user experiences.',
+  keywords: ['Thinu Upadya', 'Software Engineer', 'Full-Stack Developer', 'React', 'Node.js', 'Sri Lanka'],
   authors: [{ name: 'Thinu Upadya' }],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
-    title: 'Thinu Upadya | Software Engineer',
-    description: 'Building useful software, one thoughtful implementation at a time.',
+    title: 'Thinu Upadya | Full-Stack Developer & Software Engineer',
+    description: 'Engineering ideas. Crafting experiences. Explore the work of Thinu Upadya.',
     type: 'website',
+    url: 'https://thinu-mu.vercel.app',
+    images: [{
+      url: '/images/thinu-profile.png',
+      width: 1024,
+      height: 1024,
+      alt: 'Thinu Upadya',
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Thinu Upadya | Full-Stack Developer & Software Engineer',
+    description: 'Engineering ideas. Crafting experiences.',
+    images: ['/images/thinu-profile.png'],
   },
 };
 
@@ -20,7 +48,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        />
+      </body>
     </html>
   );
 }
