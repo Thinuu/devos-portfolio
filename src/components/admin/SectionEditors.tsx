@@ -7,6 +7,8 @@ import { z } from 'zod';
 import RepeaterField, { type RepeaterItem } from '@/components/admin/RepeaterField';
 import ImageUpload from '@/components/admin/ImageUpload';
 import type { PortfolioRelease } from '@/lib/schemas/portfolio.schema';
+import { portfolioData } from '@/lib/data';
+import { deriveFlatSkills } from '@/lib/projects/toolkit';
 
 const heroSchema = z.object({
   eyebrow: z.string().min(1).max(200),
@@ -25,6 +27,7 @@ const heroSchema = z.object({
 type HeroValue = z.infer<typeof heroSchema>;
 const aboutSchema = z.object({
   title: z.string().min(1).max(200),
+  intro: z.string().max(1000).optional(),
   paragraphs: z.array(z.string().min(1).max(2000)).min(1).max(20),
   highlights: z.array(z.object({ title: z.string().min(1).max(160), description: z.string().min(1).max(1000), hidden: z.boolean().optional() })).max(20).optional(),
   portraitImage: z.string().max(500).optional(),
@@ -58,10 +61,21 @@ function AdvancedJson({ value, onApply, title, validate }: { value: unknown; onA
 
 type RepeatRow = RepeaterItem & Record<string, unknown>;
 
+function TagInput({ label, value, onChange }: { label: string; value: string[]; onChange: (next: string[]) => void }) {
+  const [input, setInput] = useState('');
+  function addTag() {
+    const tag=input.trim();
+    if(!tag||value.includes(tag))return;
+    onChange([...value,tag]);setInput('');
+  }
+  return <div className="cms-tag-editor"><span>{label}</span><div className="cms-tags">{value.map((tag,index)=><span className="cms-tag" key={`${tag}-${index}`}>{tag}<button type="button" aria-label={`Remove ${tag}`} onClick={()=>onChange(value.filter((_,i)=>i!==index))}>×</button></span>)}</div><input value={input} placeholder={`Add ${label.toLowerCase()} and press Enter`} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'){event.preventDefault();addTag()}}}/><small>Press Enter after each tool.</small></div>;
+}
+
 export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update: (next: PortfolioRelease) => void }) {
   const record = draft.content as unknown as Record<string, unknown>;
   const value = (record.about as {
     title?: string;
+    intro?: string;
     paragraphs?: string[];
     highlights?: Array<{ title: string; description: string; hidden?: boolean }>;
     portraitImage?: string;
@@ -78,6 +92,7 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
       <div className="cms-form">
         {!record.about && <p className="cms-warning">Existing About data was missing; safe defaults are shown.</p>}
         <label><span>Heading <b>*</b></span><input value={value.title || ''} maxLength={200} onChange={(event) => patchAbout({ title: event.target.value })} /></label>
+        <label><span>Intro line</span><input value={value.intro || ''} maxLength={1000} onChange={(event) => patchAbout({ intro: event.target.value })} /></label>
         <RepeaterField
           title="Paragraphs"
           items={paragraphs.map((text, index) => ({ id: `paragraph-${index}`, text }))}
@@ -110,7 +125,7 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
         />
         <AdvancedJson title="About" value={value} validate={(next) => aboutSchema.safeParse(next)} onApply={(next) => update({ ...draft, content: { ...draft.content, about: next as never } })} />
       </div>
-      <Preview title="About preview"><h3>{value.title}</h3>{paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</Preview>
+      <Preview title="About preview"><h3>{value.title}</h3>{value.intro&&<p>{value.intro}</p>}{paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</Preview>
     </div>
   );
 }
@@ -133,9 +148,8 @@ export function RepeatEditor({ draft, update, section }: {
   if (section === 'Contact') items = (((record.contact as { links?: RepeatRow[] } | undefined)?.links) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `contact-${index}`) }));
   if (section === 'Terminal') items = (((record.terminal as { commands?: RepeatRow[] } | undefined)?.commands) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `terminal-${index}`) }));
   if (section === 'Skills') {
-    items = Object.entries((record.skills as Record<string, unknown> | undefined) ?? {}).flatMap(([category, rows]) =>
-      ((rows as Array<{ name: string; years: number }> | undefined) ?? []).map((row, index) => ({ id: `${category}-${index}`, name: row.name, years: row.years, category }))
-    );
+    const categories=(record.skillCategories as Array<Record<string,unknown>>|undefined) ?? (portfolioData.skillCategories as unknown as Array<Record<string,unknown>>);
+    items=categories.map((row,index)=>({ ...row,id:String(row.id||`skill-category-${index}`),title:String(row.title||''),description:String(row.description||''),icon:String(row.icon||'frontend'),order:Number(row.order??index),visible:row.visible!==false,coreTools:Array.isArray(row.coreTools)?row.coreTools:Array.isArray(row.core)?row.core:[],alsoExplored:Array.isArray(row.alsoExplored)?row.alsoExplored:Array.isArray(row.more)?row.more:[] })) as RepeatRow[];
   }
 
   function change(next: RepeatRow[]) {
@@ -149,27 +163,24 @@ export function RepeatEditor({ draft, update, section }: {
     if (section === 'Contact') update({ ...draft, content: { ...draft.content, contact: { ...(record.contact as object), links: next } } as unknown as PortfolioRelease['content'] });
     if (section === 'Terminal') update({ ...draft, content: { ...draft.content, terminal: { ...(record.terminal as object), commands: next } } as unknown as PortfolioRelease['content'] });
     if (section === 'Skills') {
-      const skills: Record<string, Array<{ name: string; years: number }>> = {};
-      next.forEach((row) => {
-        const category = String(row.category || 'languages');
-        if (!skills[category]) skills[category] = [];
-        skills[category].push({ name: String(row.name || ''), years: Number(row.years || 0) });
-      });
-      update({ ...draft, content: { ...draft.content, skills } as PortfolioRelease['content'] });
+      const skillCategories=next.map((row,index)=>({title:String(row.title||''),description:String(row.description||''),icon:String(row.icon||'frontend'),order:index,visible:row.visible!==false,coreTools:Array.isArray(row.coreTools)?row.coreTools.map(String):[],alsoExplored:Array.isArray(row.alsoExplored)?row.alsoExplored.map(String):[]}));
+      const skills=deriveFlatSkills(skillCategories);
+      update({ ...draft, content: { ...draft.content, skillCategories, skills } as unknown as PortfolioRelease['content'] });
+      return;
     }
   }
 
-  function createItem(): RepeatRow {
-    if (section === 'Stats') return { id: `stat-${Date.now()}`, label: '', value: '', icon: 'calendar' };
-    if (section === 'Timeline') return { id: `timeline-${Date.now()}`, year: '', title: '', description: '', type: 'education' };
-    if (section === 'Tools') return { id: `tool-${Date.now()}`, name: '', description: '', category: '' };
-    if (section === 'Workflow') return { id: `workflow-${Date.now()}`, label: '', description: '', tools: [] };
-    if (section === 'Terminal') return { id: `terminal-${Date.now()}`, command: '', output: [] };
-    if (section === 'Contact') return { id: `contact-${Date.now()}`, label: '', url: '', icon: 'Mail' };
-    if (section === 'Experience') return { id: `experience-${Date.now()}`, role: '', company: '', period: '', type: 'Full-Time', commits: [] };
-    if (section === 'Education') return { id: `education-${Date.now()}`, degree: '', institution: '', period: '', type: 'Degree' };
-    if (section === 'Certifications') return { id: `certification-${Date.now()}`, name: '', issuer: '' };
-    return { id: `skill-${Date.now()}`, name: '', years: 1, category: 'languages' };
+  function createItem(primaryValue?: string): RepeatRow {
+    if (section === 'Stats') return { id: `stat-${Date.now()}`, label: primaryValue || '', value: '', icon: 'calendar' };
+    if (section === 'Timeline') return { id: `timeline-${Date.now()}`, year: '', title: primaryValue || '', description: '', type: 'education' };
+    if (section === 'Tools') return { id: `tool-${Date.now()}`, name: primaryValue || '', description: '', category: '' };
+    if (section === 'Workflow') return { id: `workflow-${Date.now()}`, label: primaryValue || '', description: '', tools: [] };
+    if (section === 'Terminal') return { id: `terminal-${Date.now()}`, command: primaryValue || '', output: [] };
+    if (section === 'Contact') return { id: `contact-${Date.now()}`, label: primaryValue || '', url: '', icon: 'Mail' };
+    if (section === 'Experience') return { id: `experience-${Date.now()}`, role: primaryValue || '', company: '', period: '', type: 'Full-Time', commits: [] };
+    if (section === 'Education') return { id: `education-${Date.now()}`, degree: primaryValue || '', institution: '', period: '', type: 'Degree' };
+    if (section === 'Certifications') return { id: `certification-${Date.now()}`, name: primaryValue || '', issuer: '' };
+    return { id: `skill-category-${Date.now()}`, title: primaryValue || '', description: '', icon: 'frontend', order: 0, visible: true, coreTools: [], alsoExplored: [] };
   }
 
   function renderItem(row: RepeatRow, _index: number, patch: (value: Partial<RepeatRow>) => void) {
@@ -184,12 +195,13 @@ export function RepeatEditor({ draft, update, section }: {
     if (section === 'Contact') return <div className="cms-form-grid">{textField('Label', 'label')}{textField('URL', 'url', 'url')}<label><span>Icon</span><select value={String(row.icon || 'Mail')} onChange={(event) => patch({ icon: event.target.value })}>{['Mail','Phone','Github','Linkedin','MapPin','ArrowUpRight','Resume'].map((icon) => <option key={icon}>{icon}</option>)}</select></label></div>;
     if (section === 'Experience') return <div className="cms-form-grid">{textField('Role', 'role')}{textField('Company', 'company')}{textField('Subsidiary', 'parent')}{textField('Period', 'period')}<label><span>Type</span><input value={String(row.type || '')} onChange={(event) => patch({ type: event.target.value })} /></label><label><span>Type badge text</span><input value={String(row.typeBadge || '')} onChange={(event) => patch({ typeBadge: event.target.value })} /></label><label><span>Commits (one per line)</span><textarea rows={6} value={(row.commits as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ commits: event.target.value.split('\n').filter(Boolean) })} /></label></div>;
     if (section === 'Education') return <div className="cms-form-grid">{textField('Degree', 'degree')}{textField('Institution', 'institution')}{textField('Period', 'period')}<label><span>Status label</span><input value={String(row.statusLabel || '')} onChange={(event) => patch({ statusLabel: event.target.value })} /></label><label><span>Status year</span><input value={String(row.statusYear || row.year || '')} onChange={(event) => patch({ statusYear: event.target.value, year: event.target.value })} /></label><label><span>Badge</span><input value={String(row.badge || row.note || '')} onChange={(event) => patch({ badge: event.target.value, note: event.target.value })} /></label><label><span>Type</span><input value={String(row.type || '')} onChange={(event) => patch({ type: event.target.value })} /></label></div>;
-    if (section === 'Certifications') return <div className="cms-form-grid">{textField('Name', 'name')}{textField('Issuer', 'issuer')}{textField('Year', 'year')}{textField('Credential URL', 'credentialUrl', 'url')}</div>;
+    if (section === 'Certifications') return <div className="cms-form-grid">{textField('Name', 'name')}<label><span>Issuer</span><input value={String(row.issuer||'')} onChange={(event)=>patch({issuer:event.target.value})}/></label><label><span>Year</span><input value={String(row.year||'')} onChange={(event)=>patch({year:event.target.value})}/></label><label><span>Credential URL</span><input type="url" value={String(row.credentialUrl||'')} onChange={(event)=>patch({credentialUrl:event.target.value})}/></label></div>;
+    if (section === 'Skills') return <><div className="cms-form-grid"><label><span>Category title <b>*</b></span><input value={String(row.title||'')} onChange={(event)=>patch({title:event.target.value})}/></label><label><span>Icon</span><input value={String(row.icon||'')} onChange={(event)=>patch({icon:event.target.value})}/></label><label className="cms-wide-field"><span>Description</span><textarea rows={3} value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></label><label><span>Display order</span><input type="number" min="0" value={Number(row.order??0)} onChange={(event)=>patch({order:Number(event.target.value)})}/></label><label className="cms-checkbox-field"><input type="checkbox" checked={row.visible!==false} onChange={(event)=>patch({visible:event.target.checked})}/> Shown on site</label></div><TagInput label="Core tools" value={Array.isArray(row.coreTools)?row.coreTools.map(String):[]} onChange={(coreTools)=>patch({coreTools})}/><TagInput label="Also explored" value={Array.isArray(row.alsoExplored)?row.alsoExplored.map(String):[]} onChange={(alsoExplored)=>patch({alsoExplored})}/></>;
     return <div className="cms-form-grid">{textField('Skill name', 'name')}<label><span>Category</span><input value={String(row.category || 'languages')} onChange={(event) => patch({ category: event.target.value })} /></label><label><span>Years</span><input type="number" min="0" max="50" value={Number(row.years || 0)} onChange={(event) => patch({ years: Number(event.target.value) })} /></label></div>;
   }
 
-  const advancedValue = section === 'Contact' ? record.contact : section === 'Terminal' ? record.terminal : record[section.toLowerCase()];
-  const itemLabel = section === 'Stats' ? 'Stat' : section === 'Timeline' ? 'Timeline entry' : section === 'Tools' ? 'Tool' : section === 'Workflow' ? 'Workflow step' : section === 'Terminal' ? 'Command' : section === 'Contact' ? 'Contact link' : section === 'Skills' ? 'Skill' : section === 'Experience' ? 'Experience entry' : section === 'Education' ? 'Education entry' : 'Certification';
+  const advancedValue = section === 'Contact' ? record.contact : section === 'Terminal' ? record.terminal : section === 'Skills' ? record.skillCategories : record[section.toLowerCase()];
+  const itemLabel = section === 'Stats' ? 'Stat' : section === 'Timeline' ? 'Timeline entry' : section === 'Tools' ? 'Tool' : section === 'Workflow' ? 'Workflow step' : section === 'Terminal' ? 'Command' : section === 'Contact' ? 'Contact link' : section === 'Skills' ? 'Toolkit category' : section === 'Experience' ? 'Experience entry' : section === 'Education' ? 'Education entry' : 'Certification';
   const emptyDescriptions: Partial<Record<typeof section, string>> = {
     Stats: 'Stats appear as compact portfolio metrics.',
     Timeline: 'Timeline entries show milestones and career progress.',
@@ -207,8 +219,10 @@ export function RepeatEditor({ draft, update, section }: {
     <div className="cms-profile-layout">
       <div>
         {!Array.isArray(items) && <p className="cms-warning">Existing data could not be read; safe defaults are shown.</p>}
-        <RepeaterField title={section} items={items} onChange={change} createItem={createItem} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
-        <AdvancedJson title={section} value={advancedValue} onApply={(value) => update({ ...draft, content: { ...draft.content, [section.toLowerCase()]: value } } as PortfolioRelease)} />
+        {section==='Skills'&&<label className="cms-toolkit-note"><span>Toolkit note</span><textarea rows={2} value={String(record.familiarityNote||'')} onChange={(event)=>update({...draft,content:{...draft.content,familiarityNote:event.target.value} as PortfolioRelease['content']})}/></label>}
+        {section==='Contact'&&<div className="cms-form cms-contact-copy"><div className="cms-form-grid"><label><span>Heading</span><input value={String((record.contact as Record<string,unknown>|undefined)?.title||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),title:event.target.value}} as PortfolioRelease['content']})}/></label><label><span>Button text</span><input value={String((record.contact as Record<string,unknown>|undefined)?.buttonLabel||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),buttonLabel:event.target.value}} as PortfolioRelease['content']})}/></label></div><label><span>Paragraph</span><textarea rows={4} value={String((record.contact as Record<string,unknown>|undefined)?.description||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),description:event.target.value}} as PortfolioRelease['content']})}/></label></div>}
+        <RepeaterField title={section} items={items} onChange={change} createItem={createItem} primaryField={{key:section==='Stats'?'label':section==='Timeline'?'title':section==='Tools'?'name':section==='Workflow'?'label':section==='Terminal'?'command':section==='Contact'?'label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'title':'name',label:section==='Stats'?'stat label':section==='Timeline'?'milestone title':section==='Tools'?'tool name':section==='Workflow'?'step label':section==='Terminal'?'command':section==='Contact'?'contact label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'category title':'certification name'}} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
+        <AdvancedJson title={section} value={advancedValue} onApply={(value) => section==='Skills' ? (Array.isArray(value)&&change(value as RepeatRow[])) : update({ ...draft, content: { ...draft.content, [section.toLowerCase()]: value } } as PortfolioRelease)} />
       </div>
       <Preview title={`${section} preview`}>
         {items.slice(0, 6).map((item) => <p key={String(item.id)}><strong>{String(item.label || item.title || item.name || item.role || item.degree || item.command || '')}</strong>{item.description ? ` — ${String(item.description)}` : ''}</p>)}

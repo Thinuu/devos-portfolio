@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/firebase/auth';
 import { getFirebaseAdmin } from '@/lib/firebase/admin';
 import { getDraftRelease, publishDraft } from '@/lib/repositories/portfolio.repository';
 import { releaseSchema } from '@/lib/schemas/portfolio.schema';
+import { formatValidationIssues } from '@/lib/schemas/validation-issues';
 
 export const runtime = 'nodejs';
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     }
     if (body) {
       const parsed = releaseSchema.safeParse(body);
-      if (!parsed.success) return NextResponse.json({ error: 'Draft validation failed.', issues: parsed.error.issues }, { status: 422 });
+      if (!parsed.success) return NextResponse.json({ error: 'Draft validation failed. Review the listed fields.', failures: formatValidationIssues(parsed.error.issues, (body as { content?: unknown }).content), issues: parsed.error.issues }, { status: 422 });
       release = parsed.data as unknown as typeof release;
     }
     const releaseId = await publishDraft(release, admin.uid);

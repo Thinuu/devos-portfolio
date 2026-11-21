@@ -137,6 +137,7 @@ export const portfolioSchema = z.object({
   }).optional(),
   about: z.object({
     title: z.string().max(200),
+    intro: z.string().max(1000).optional(),
     paragraphs: z.array(z.string().max(2000)).max(20).optional(),
     highlights: z.array(z.object({
       title: z.string().max(160),
@@ -172,6 +173,7 @@ export const portfolioSchema = z.object({
   contact: z.object({
     title: z.string().max(200),
     description: z.string().max(1000),
+    buttonLabel: z.string().max(80).optional(),
     links: z.array(z.object({
       label: z.string().min(1).max(80),
       url: z.string().max(500),
@@ -200,11 +202,11 @@ export const portfolioSchema = z.object({
     description: z.string().max(1000).optional(),
     icon: z.string().max(40).optional(),
     core: z.array(z.string().max(100)).max(100).optional(),
-    coreTools: z.array(z.string().max(100)).max(100).optional(),
+    coreTools: z.array(z.string().max(100)).max(100).default([]),
     more: z.array(z.string().max(100)).max(100).optional(),
-    alsoExplored: z.array(z.string().max(100)).max(100).optional(),
-    order: z.number().int().min(0).optional(),
-    visible: z.boolean().optional(),
+    alsoExplored: z.array(z.string().max(100)).max(100).default([]),
+    order: z.number().int().min(0).default(0),
+    visible: z.boolean().default(true),
   }).passthrough()).max(50),
   familiarityNote: z.string().max(500).optional(),
   experience: z.array(z.object({

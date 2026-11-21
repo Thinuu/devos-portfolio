@@ -17,19 +17,20 @@ import {
 import SiteHeader from '@/components/portfolio/SiteHeader';
 import TULogo from '@/components/brand/TULogo';
 import { portfolioData } from '@/lib/data';
-import { getPublishedRelease } from '@/lib/repositories/portfolio.repository';
+import { getDraftRelease, getPublishedRelease } from '@/lib/repositories/portfolio.repository';
+import { getProjectLinks } from '@/lib/projects/links';
 
 type Project = (typeof portfolioData.projects)[number];
 
 const featureIcons: LucideIcon[] = [Layers3, Workflow, MessageSquare, Database, Bot, Cpu];
 
-async function getContent() {
-  const release = await getPublishedRelease();
+async function getContent(draftPreview = false) {
+  const release = draftPreview ? await getDraftRelease() : await getPublishedRelease();
   return release?.content ?? portfolioData;
 }
 
-async function getProject(slug: string): Promise<Project | undefined> {
-  const content = await getContent();
+async function getProject(slug: string, draftPreview = false): Promise<Project | undefined> {
+  const content = await getContent(draftPreview);
   return content.projects.find((project) => project.id === slug && !('hidden' in project && project.hidden));
 }
 
@@ -60,33 +61,14 @@ export async function generateMetadata({
 }
 
 function ProjectLinks({ project }: { project: Project }) {
-  const links: { label: string; href: string }[] = [];
-
-  if ('link' in project && project.link) {
-    links.push({
-      label: 'linkLabel' in project && project.linkLabel ? project.linkLabel : 'Visit project',
-      href: project.link,
-    });
-  }
-
-  if ('links' in project && project.links) {
-    project.links.forEach((href) => {
-      if (typeof href === 'string') {
-        try { links.push({ label: new URL(href).hostname.replace(/^www\./, ''), href }); }
-        catch { /* Skip malformed legacy URLs. */ }
-      } else {
-        const projectLink = href as unknown as { label: string; url: string };
-        links.push({ label: projectLink.label, href: projectLink.url });
-      }
-    });
-  }
+  const links = getProjectLinks(project as unknown as { link?: unknown; linkLabel?: unknown; links?: unknown });
 
   if (links.length === 0) return null;
 
   return (
     <div className="case-actions">
-      {links.map(({ label, href }) => (
-        <a className="button button-secondary" key={href} href={href} target="_blank" rel="noreferrer">
+      {links.map(({ label, url }) => (
+        <a className="button button-secondary" key={url} href={url} target="_blank" rel="noreferrer">
           {label} <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       ))}
@@ -108,15 +90,19 @@ function ProjectFooter() {
 
 export default async function ProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ preview?: string }>;
 }) {
   const { slug } = await params;
-  const project = await getProject(slug);
+  const query = await searchParams;
+  const draftPreview = process.env.LOCAL_DRAFT_PREVIEW === '1' && query?.preview === 'draft';
+  const project = await getProject(slug, draftPreview);
 
   if (!project) notFound();
 
-  const content = await getContent();
+  const content = await getContent(draftPreview);
   const projectIndex = content.projects.findIndex((item) => item.id === project.id);
   const previousProject = content.projects[(projectIndex - 1 + content.projects.length) % content.projects.length];
   const nextProject = content.projects[(projectIndex + 1) % content.projects.length];

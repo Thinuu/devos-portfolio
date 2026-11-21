@@ -1,3 +1,5 @@
+import { deriveFlatSkills } from '@/lib/projects/toolkit';
+
 export const portfolioData = {
   navigation: {
     items: [
@@ -42,7 +44,8 @@ export const portfolioData = {
     layout: 'split',
   },
   about: {
-    title: 'A developer who builds with purpose.',
+    title: 'A developer with a passion for building meaningful experiences.',
+    intro: 'I work across the stack to turn complex ideas into clear, useful digital products.',
     paragraphs: ['I combine full-stack engineering, enterprise systems, and thoughtful product design to deliver reliable digital experiences.'],
     portraitImage: '/images/thinu-profile.png',
     portraitAlt: 'Thinu Upadya',
@@ -66,11 +69,28 @@ export const portfolioData = {
   terminal: {
     welcome: 'Welcome to the terminal. Type "help" for available commands.',
     prompt: 'thinu@portfolio:~',
-    help: ['Available commands:', 'help', 'about', 'projects', 'skills', 'experience', 'contact', 'resume', 'clear'],
+    help: ['Available commands:', '', '  help        Show this help message', '  about       About Thinu', '  projects    List all projects', '  skills      Show technical skills', '  experience  Work experience timeline', '  contact     Contact information', '  resume      Download CV', '  clear       Clear terminal', '', 'Type a command and press Enter'],
+    commands: [
+      { command: 'help', output: ['Available commands:', '', '  help        Show this help message', '  about       About Thinu', '  projects    List all projects', '  skills      Show technical skills', '  experience  Work experience timeline', '  contact     Contact information', '  resume      Download CV', '  clear       Clear terminal', '', 'Type a command and press Enter'] },
+      { command: 'about', output: [`Name:    Thinu Upadya`, 'Role:    Software Engineer'] },
+      { command: 'projects', output: [] },
+      { command: 'skills', output: ['Languages: JavaScript, TypeScript, Python, PHP, Java, C#, C++, SQL', 'Frontend: React, Next.js, Angular, Tailwind CSS', 'Backend: Node.js, Express, PHP/Laravel, Python, .NET', 'Databases: MySQL, PostgreSQL, MongoDB, Firebase', 'IoT: ESP32, Arduino, Blynk'] },
+      { command: 'experience', output: [] },
+      { command: 'contact', output: ['Email: thinuupadya13@gmail.com', 'Phone: +94 75 059 0315', 'GitHub: https://github.com/Thinuu', 'LinkedIn: https://www.linkedin.com/in/thinu-upadya/'] },
+      { command: 'resume', output: ['Downloading CV...'] },
+      { command: 'clear', output: [] },
+    ],
   },
   contact: {
-    title: 'Get In Touch',
-    description: 'Available for opportunities and collaboration',
+    title: "Have an idea? Let's make it real.",
+    description: "Whether you're building a product, looking for a developer, or exploring a collaboration, I'd be happy to hear from you.",
+    buttonLabel: 'thinuupadya13@gmail.com',
+    links: [
+      { label: 'Email', url: 'mailto:thinuupadya13@gmail.com?subject=Let%E2%80%99s%20build%20something%20together', icon: 'Mail' },
+      { label: 'GitHub', url: 'https://github.com/Thinuu', icon: 'Github' },
+      { label: 'LinkedIn', url: 'https://www.linkedin.com/in/thinu-upadya/', icon: 'Linkedin' },
+      { label: 'Resume', url: '/THINU_UPADYA_CV_Updated.pdf', icon: 'FileText' },
+    ],
   },
   personal: {
     name: 'Thinu Upadya',
@@ -429,66 +449,76 @@ export const portfolioData = {
       title: 'Frontend development',
       description: 'Interfaces, shared UI patterns, and accessible responsive experiences.',
       icon: 'frontend',
-      core: ['HTML5', 'CSS3', 'JavaScript', 'TypeScript', 'React.js', 'Next.js', 'Redux Toolkit', 'Tailwind CSS'],
-      more: ['React Context API', 'Bootstrap', 'UIkit', 'Responsive Web Design', 'Component-Based Architecture', 'API Integration', 'Web Accessibility'],
+      coreTools: ['HTML5', 'CSS3', 'JavaScript', 'TypeScript', 'React.js', 'Next.js', 'Redux Toolkit', 'Tailwind CSS'],
+      alsoExplored: ['React Context API', 'Bootstrap', 'UIkit', 'Responsive Web Design', 'Component-Based Architecture', 'API Integration', 'Web Accessibility'],
+      order: 0, visible: true,
     },
     {
       title: 'Backend development',
       description: 'Application services, API design, and server-side workflows.',
       icon: 'backend',
-      core: ['Node.js', 'Express.js', 'PHP', 'Laravel', 'Python', 'Java', 'C#', 'REST API Development'],
-      more: ['Spring Boot', 'ASP.NET Core', 'NestJS', 'JWT Authentication', 'Server-Side Validation', 'Authentication and Authorization'],
+      coreTools: ['Node.js', 'Express.js', 'PHP', 'Laravel', 'Python', 'Java', 'C#', 'REST API Development'],
+      alsoExplored: ['Spring Boot', 'ASP.NET Core', 'NestJS', 'JWT Authentication', 'Server-Side Validation', 'Authentication and Authorization'],
+      order: 1, visible: true,
     },
     {
       title: 'Databases & cloud',
       description: 'Data modeling, persistence, and deployment platforms.',
       icon: 'database',
-      core: ['MySQL', 'PostgreSQL', 'MongoDB', 'Firebase', 'Docker', 'GitHub Actions', 'CI/CD'],
-      more: ['Supabase', 'AWS', 'Azure', 'Basic Linux Administration', 'Cloud Deployment', 'Database Design'],
+      coreTools: ['MySQL', 'PostgreSQL', 'MongoDB', 'Firebase', 'Docker', 'GitHub Actions', 'CI/CD'],
+      alsoExplored: ['Supabase', 'AWS', 'Azure', 'Basic Linux Administration', 'Cloud Deployment', 'Database Design'],
+      order: 2, visible: true,
     },
     {
       title: 'CMS & web platforms',
       description: 'Business websites, content systems, and production improvements.',
       icon: 'platforms',
-      core: ['WordPress', 'Elementor', 'Custom WordPress Plugins', 'SEO', 'Website Performance Optimization'],
-      more: ['Custom WordPress Themes', 'Wix', 'CMS Integration', 'Website Migration', 'Hosting and Domain Configuration'],
+      coreTools: ['WordPress', 'Elementor', 'Custom WordPress Plugins', 'SEO', 'Website Performance Optimization'],
+      alsoExplored: ['Custom WordPress Themes', 'Wix', 'CMS Integration', 'Website Migration', 'Hosting and Domain Configuration'],
+      order: 3, visible: true,
     },
     {
       title: 'UI/UX & design',
       description: 'Design tools and practices for shaping usable digital experiences.',
       icon: 'design',
-      core: ['Figma', 'Wireframing', 'Prototyping', 'User Interface Design', 'User Experience Design'],
-      more: ['Canva', 'Responsive Layout Design', 'Design Systems', 'User Journey Mapping', 'Usability Testing', 'Visual Content Design'],
+      coreTools: ['Figma', 'Wireframing', 'Prototyping', 'User Interface Design', 'User Experience Design'],
+      alsoExplored: ['Canva', 'Responsive Layout Design', 'Design Systems', 'User Journey Mapping', 'Usability Testing', 'Visual Content Design'],
+      order: 4, visible: true,
     },
     {
       title: 'Data & business intelligence',
       description: 'Querying, analysis, and communicating information with data.',
       icon: 'data',
-      core: ['SQL Querying', 'Excel', 'Data Analysis', 'Data Visualization'],
-      more: ['Microsoft Power BI', 'Dashboard Development', 'DAX', 'Reporting', 'Data Modeling'],
+      coreTools: ['SQL Querying', 'Excel', 'Data Analysis', 'Data Visualization'],
+      alsoExplored: ['Microsoft Power BI', 'Dashboard Development', 'DAX', 'Reporting', 'Data Modeling'],
+      order: 5, visible: true,
     },
     {
       title: 'Creative & digital tools',
       description: 'Supporting tools for visual content and digital communication.',
       icon: 'creative',
-      core: ['Canva', 'Presentation Design', 'Digital Content Creation'],
-      more: ['CapCut', 'Image Editing', 'Basic Video Editing', 'Social Media Graphics'],
+      coreTools: ['Canva', 'Presentation Design', 'Digital Content Creation'],
+      alsoExplored: ['CapCut', 'Image Editing', 'Basic Video Editing', 'Social Media Graphics'],
+      order: 6, visible: true,
     },
     {
       title: 'Developer tools & practices',
       description: 'Version control, testing, collaboration, and engineering fundamentals.',
       icon: 'tools',
-      core: ['Git', 'GitHub', 'VS Code', 'Postman', 'Agile Development', 'Debugging', 'API Testing'],
-      more: ['Thunder Client', 'SonarQube', 'Snyk', 'GitHub Advanced Security', 'SDLC', 'OOP', 'SOLID Principles', 'Data Structures and Algorithms', 'Playwright', 'Technical Documentation'],
+      coreTools: ['Git', 'GitHub', 'VS Code', 'Postman', 'Agile Development', 'Debugging', 'API Testing'],
+      alsoExplored: ['Thunder Client', 'SonarQube', 'Snyk', 'GitHub Advanced Security', 'SDLC', 'OOP', 'SOLID Principles', 'Data Structures and Algorithms', 'Playwright', 'Technical Documentation'],
+      order: 7, visible: true,
     },
     {
       title: 'IoT & hardware integration',
       description: 'Connecting embedded devices, sensors, and software workflows.',
       icon: 'iot',
-      core: ['ESP32', 'Arduino Ecosystem', 'Sensor Integration', 'IoT Applications', 'Blynk'],
-      more: ['RFID Integration', 'Relay Control', 'Embedded-to-Web Communication', 'Real-Time Device Monitoring'],
+      coreTools: ['ESP32', 'Arduino Ecosystem', 'Sensor Integration', 'IoT Applications', 'Blynk'],
+      alsoExplored: ['RFID Integration', 'Relay Control', 'Embedded-to-Web Communication', 'Real-Time Device Monitoring'],
+      order: 8, visible: true,
     },
   ],
+  familiarityNote: 'Tools and practices across professional work, projects, and study. Familiarity varies by technology.',
 
   experience: [
     {
@@ -557,3 +587,17 @@ export const portfolioData = {
     },
   ],
 };
+
+const terminalSeed = portfolioData.terminal as { commands: Array<{ command: string; output: string[] }> };
+portfolioData.skills = deriveFlatSkills(portfolioData.skillCategories) as unknown as typeof portfolioData.skills;
+terminalSeed.commands.find((item) => item.command === 'about')!.output = [
+  `Name:    ${portfolioData.personal.name}`,
+  `Role:    ${portfolioData.personal.role}`,
+  `Bio:     ${portfolioData.personal.bio.split('.')[0]}.`,
+];
+terminalSeed.commands.find((item) => item.command === 'projects')!.output = portfolioData.projects.map(
+  (project) => `  • ${project.title} [${project.status}]`,
+);
+terminalSeed.commands.find((item) => item.command === 'experience')!.output = portfolioData.experience.map(
+  (entry) => `  • ${entry.role} @ ${entry.company} (${entry.period})`,
+);

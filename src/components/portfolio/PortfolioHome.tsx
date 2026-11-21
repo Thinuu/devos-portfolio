@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion';
 import TULogo from '@/components/brand/TULogo';
 import SiteHeader from '@/components/portfolio/SiteHeader';
+import { getProjectLinks } from '@/lib/projects/links';
 import {
   ArrowDown,
   ArrowRight,
@@ -26,7 +27,7 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { PortfolioRelease, AnimationSettings } from '@/lib/schemas/portfolio.schema';
 
 const skillIcons: Record<string, LucideIcon> = {
@@ -90,13 +91,16 @@ export default function PortfolioHome({
   const { personal, projects, experience, education, skillCategories } = data;
   const hero = data.hero;
   const visibleProjects = projects.filter((project) => !('hidden' in project && project.hidden));
+  const visibleSkillCategories = [...skillCategories].filter((category) => category.visible !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const about = (data as typeof data & { about?: {
     title?: string;
+    intro?: string;
     paragraphs?: string[];
     highlights?: Array<{ title: string; description: string }>;
     portraitImage?: string;
     portraitAlt?: string;
   } }).about;
+  const contact = (data as typeof data & { contact?: { title?: string; description?: string; buttonLabel?: string; links?: Array<{ label: string; url: string; icon?: string }> } }).contact;
   const filteredProjects = visibleProjects.filter(
     (project) => activeProjectFilter === 'All'
       || project.category === activeProjectFilter
@@ -143,7 +147,7 @@ export default function PortfolioHome({
         <section className="hero section-wrap" id="home" aria-labelledby="hero-title">
           <div className="hero-copy">
             <motion.p className="eyebrow hero-eyebrow motion-content" initial="hidden" animate="visible" variants={reveals}>
-              <span className="status-dot" /> {hero?.eyebrow ?? 'FULL-STACK DEVELOPER'} <span className="eyebrow-slash">/</span> SOFTWARE ENGINEER
+              <span className="status-dot" /> {hero?.eyebrow ?? 'FULL-STACK DEVELOPER / SOFTWARE ENGINEER'}
             </motion.p>
             <motion.h1 className="motion-content" id="hero-title" initial="hidden" animate="visible" transition={{ delay: 0.08 }} variants={reveals}>
               {(hero?.heading ?? 'Engineering ideas. Crafting experiences.').split(/([.!])/).map((part, index) => part === '.' ? <span className="accent-text" key={index}>.</span> : part)}
@@ -199,7 +203,7 @@ export default function PortfolioHome({
                 </div>
                 <div>
                   <span className="card-index">THINU UPADYA / SOFTWARE ENGINEER</span>
-                  <p className="large-copy">I work across the stack to turn complex ideas into clear, useful digital products.</p>
+                  <p className="large-copy">{about?.intro || 'I work across the stack to turn complex ideas into clear, useful digital products.'}</p>
                 </div>
               </div>
               <div className="body-copy">{(about?.paragraphs?.length ? about.paragraphs : [personal.bio]).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
@@ -241,10 +245,13 @@ export default function PortfolioHome({
 
         <section className="expertise section-wrap section-space" id="expertise" aria-labelledby="expertise-title">
           <SectionHeading number="03" eyebrow="THE TOOLKIT" title="Technologies I use to turn ideas into working products." id="expertise-title" />
-          <p className="skills-note">Tools and practices across professional work, projects, and study. Familiarity varies by technology.</p>
+          <p className="skills-note">{data.familiarityNote || 'Tools and practices across professional work, projects, and study. Familiarity varies by technology.'}</p>
           <div className="skills-grid">
-            {skillCategories.map((category, index) => {
+            {visibleSkillCategories.map((category, index) => {
               const Icon = skillIcons[category.icon];
+              const legacyCategory = category as typeof category & { core?: string[]; more?: string[] };
+              const coreTools = category.coreTools.length ? category.coreTools : legacyCategory.core ?? [];
+              const alsoExplored = category.alsoExplored.length ? category.alsoExplored : legacyCategory.more ?? [];
               return (
                 <motion.details
                   className="skill-card motion-content"
@@ -267,9 +274,9 @@ export default function PortfolioHome({
                   </summary>
                   <div className="skill-card-content">
                     <span className="skill-list-label">Core tools</span>
-                    <div className="tag-list">{category.core.map((tool) => <span key={tool}>{tool}</span>)}</div>
+                    <div className="tag-list">{coreTools.map((tool) => <span key={tool}>{tool}</span>)}</div>
                     <span className="skill-list-label">Also explored</span>
-                    <div className="tag-list">{category.more.map((tool) => <span key={tool}>{tool}</span>)}</div>
+                    <div className="tag-list">{alsoExplored.map((tool) => <span key={tool}>{tool}</span>)}</div>
                   </div>
                 </motion.details>
               );
@@ -325,15 +332,7 @@ export default function PortfolioHome({
                   {'collaborationNote' in project && <p className="project-collaboration">{project.collaborationNote}</p>}
                   <div className="project-card-actions">
                     <Link className="text-link" href={`/projects/${project.id}`}>View case study <ArrowUpRight size={16} /></Link>
-                    {'link' in project && project.link && (
-                      <a className="text-link" href={project.link} target="_blank" rel="noreferrer">
-                        {'linkLabel' in project && project.linkLabel ? project.linkLabel : 'Visit project'} <ArrowUpRight size={16} />
-                      </a>
-                    )}
-                    {(project as unknown as { links?: Array<string | { label: string; url: string }> }).links?.slice(0, 2).map((item) => {
-                      const link = typeof item === 'string' ? { label: 'Visit project', url: item } : item;
-                      return <a className="text-link" key={link.url} href={link.url} target="_blank" rel="noreferrer">{link.label} <ArrowUpRight size={16} /></a>;
-                    })}
+                    {getProjectLinks(project as unknown as { link?: unknown; linkLabel?: unknown; links?: unknown }).slice(0, 3).map((link) => <a className="text-link" key={link.url} href={link.url} target="_blank" rel="noreferrer">{link.label} <ArrowUpRight size={16} /></a>)}
                   </div>
                 </div>
               </motion.article>
@@ -361,16 +360,14 @@ export default function PortfolioHome({
           <div className="section-kicker"><span>06</span><span className="section-kicker-line" /><span>LET&apos;S CONNECT</span></div>
           <div className="contact-content">
             <div>
-              <h2 id="contact-title">Have an idea?<br /><span className="accent-text">Let&apos;s make it real.</span></h2>
-              <p>Whether you&apos;re building a product, looking for a developer, or exploring a collaboration, I&apos;d be happy to hear from you.</p>
-              <a className="button button-primary contact-button" href={`mailto:${personal.email}?subject=${encodeURIComponent('Let’s build something together')}`}>
-                <Mail size={17} /> {personal.email} <ArrowUpRight size={16} />
+              <h2 id="contact-title">{(contact?.title || "Have an idea? Let's make it real.").split('? ').map((part, index) => index === 0 ? <Fragment key={part}>{part}?<br /></Fragment> : <span className="accent-text" key={part}>{part}</span>)}</h2>
+              <p>{contact?.description || "Whether you're building a product, looking for a developer, or exploring a collaboration, I'd be happy to hear from you."}</p>
+              <a className="button button-primary contact-button" href={contact?.links?.find((link) => link.label === 'Email')?.url || `mailto:${personal.email}?subject=Let%E2%80%99s%20build%20something%20together`}>
+                <Mail size={17} /> {contact?.buttonLabel || personal.email} <ArrowUpRight size={16} />
               </a>
             </div>
             <div className="contact-socials">
-              <a href={personal.github} target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={16} /></a>
-              <a href={personal.linkedin} target="_blank" rel="noreferrer">LinkedIn <ArrowUpRight size={16} /></a>
-              <a href="/THINU_UPADYA_CV_Updated.pdf" download>Resume <ArrowUpRight size={16} /></a>
+              {(contact?.links?.filter((link) => link.label !== 'Email') ?? [{ label: 'GitHub', url: personal.github }, { label: 'LinkedIn', url: personal.linkedin }, { label: 'Resume', url: '/THINU_UPADYA_CV_Updated.pdf' }]).map((link) => <a key={link.label} href={link.url} target={link.url.startsWith('http') ? '_blank' : undefined} rel={link.url.startsWith('http') ? 'noreferrer' : undefined}>{link.label} <ArrowUpRight size={16} /></a>)}
             </div>
           </div>
           <footer className="site-footer">
