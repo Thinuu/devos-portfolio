@@ -2,18 +2,20 @@ import type { Metadata } from 'next';
 import '@/styles/globals.css';
 import { portfolioData } from '@/lib/data';
 
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://thinu.me').replace(/\/$/, '');
+
 const structuredData = {
   '@context': 'https://schema.org',
   '@type': 'Person',
   name: portfolioData.personal.name,
   jobTitle: 'Full-Stack Developer & Software Engineer',
-  url: 'https://thinu-mu.vercel.app',
-  image: 'https://thinu-mu.vercel.app/images/thinu-profile.png',
+  url: siteUrl,
+  image: `${siteUrl}/images/thinu-profile.png`,
   sameAs: [portfolioData.personal.github, portfolioData.personal.linkedin],
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://thinu-mu.vercel.app'),
+  metadataBase: new URL(siteUrl),
   title: 'Thinu Upadya | Full-Stack Developer & Software Engineer',
   description: 'Explore the portfolio of Thinu Upadya, a full-stack developer and software engineer building modern web applications, digital products, and thoughtful user experiences.',
   keywords: ['Thinu Upadya', 'Software Engineer', 'Full-Stack Developer', 'React', 'Node.js', 'Sri Lanka'],
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
     title: 'Thinu Upadya | Full-Stack Developer & Software Engineer',
     description: 'Engineering ideas. Crafting experiences. Explore the work of Thinu Upadya.',
     type: 'website',
-    url: 'https://thinu-mu.vercel.app',
+    url: siteUrl,
     images: [{
       url: '/images/thinu-profile.png',
       width: 1024,

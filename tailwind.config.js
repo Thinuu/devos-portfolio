@@ -8,14 +8,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: '#0a0a0a',
-        surface: '#141414',
-        border: '#2a2a2a',
-        accent: '#a3e635',
-        'accent-dim': '#65a30d',
-        muted: '#4a4a4a',
-        text: '#f5f5f5',
-        'text-dim': '#888888',
+        bg: 'var(--bg)',
+        'bg-soft': 'var(--bg-soft)',
+        surface: 'var(--surface)',
+        'surface-raised': 'var(--surface-raised)',
+        border: 'var(--border)',
+        accent: 'var(--accent)',
+        'accent-soft': 'var(--accent-soft)',
+        muted: 'var(--muted)',
+        text: 'var(--text)',
+        'text-soft': 'var(--text-soft)',
       },
       fontFamily: {
         display: ['Space Grotesk', 'sans-serif'],
@@ -42,8 +44,8 @@ module.exports = {
         },
       },
       backgroundImage: {
-        'grid-pattern': `linear-gradient(rgba(163, 230, 53, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(163, 230, 53, 0.03) 1px, transparent 1px)`,
+        'grid-pattern': `linear-gradient(rgba(181, 162, 216, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(181, 162, 216, 0.03) 1px, transparent 1px)`,
       },
       backgroundSize: {
         'grid': '60px 60px',

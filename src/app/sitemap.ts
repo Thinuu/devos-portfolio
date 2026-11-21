@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { portfolioData } from '@/lib/data';
 
-const siteUrl = 'https://thinu-mu.vercel.app';
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://thinu.me').replace(/\/$/, '');
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

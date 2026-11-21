@@ -17,13 +17,20 @@ import {
 import SiteHeader from '@/components/portfolio/SiteHeader';
 import TULogo from '@/components/brand/TULogo';
 import { portfolioData } from '@/lib/data';
+import { getPublishedRelease } from '@/lib/repositories/portfolio.repository';
 
 type Project = (typeof portfolioData.projects)[number];
 
 const featureIcons: LucideIcon[] = [Layers3, Workflow, MessageSquare, Database, Bot, Cpu];
 
-function getProject(slug: string): Project | undefined {
-  return portfolioData.projects.find((project) => project.id === slug);
+async function getContent() {
+  const release = await getPublishedRelease();
+  return release?.content ?? portfolioData;
+}
+
+async function getProject(slug: string): Promise<Project | undefined> {
+  const content = await getContent();
+  return content.projects.find((project) => project.id === slug && !('hidden' in project && project.hidden));
 }
 
 export function generateStaticParams() {
@@ -36,7 +43,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const project = getProject(slug);
+  const project = await getProject(slug);
 
   if (!project) return { title: 'Project not found | Thinu Upadya' };
 
@@ -64,10 +71,12 @@ function ProjectLinks({ project }: { project: Project }) {
 
   if ('links' in project && project.links) {
     project.links.forEach((href) => {
-      try {
-        links.push({ label: new URL(href).hostname.replace(/^www\./, ''), href });
-      } catch {
-        throw new Error(`Invalid project URL for ${project.title}`);
+      if (typeof href === 'string') {
+        try { links.push({ label: new URL(href).hostname.replace(/^www\./, ''), href }); }
+        catch { /* Skip malformed legacy URLs. */ }
+      } else {
+        const projectLink = href as unknown as { label: string; url: string };
+        links.push({ label: projectLink.label, href: projectLink.url });
       }
     });
   }
@@ -103,13 +112,14 @@ export default async function ProjectPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = getProject(slug);
+  const project = await getProject(slug);
 
   if (!project) notFound();
 
-  const projectIndex = portfolioData.projects.findIndex((item) => item.id === project.id);
-  const previousProject = portfolioData.projects[(projectIndex - 1 + portfolioData.projects.length) % portfolioData.projects.length];
-  const nextProject = portfolioData.projects[(projectIndex + 1) % portfolioData.projects.length];
+  const content = await getContent();
+  const projectIndex = content.projects.findIndex((item) => item.id === project.id);
+  const previousProject = content.projects[(projectIndex - 1 + content.projects.length) % content.projects.length];
+  const nextProject = content.projects[(projectIndex + 1) % content.projects.length];
   const highlightTitle = 'highlightsTitle' in project && project.highlightsTitle
     ? project.highlightsTitle
     : 'Project highlights';
@@ -208,11 +218,15 @@ export default async function ProjectPage({
             <div className="case-feature-grid">
               {project.highlights.map((highlight, index) => {
                 const Icon = featureIcons[index % featureIcons.length];
+                const highlightRecord = highlight as unknown as string | { text: string };
+                const highlightText = typeof highlightRecord === 'string'
+                  ? highlightRecord
+                  : highlightRecord.text;
                 return (
-                  <article className="case-feature-card" key={highlight}>
+                  <article className="case-feature-card" key={`${highlightText}-${index}`}>
                     <span className="case-feature-index">0{index + 1}</span>
                     <Icon size={19} aria-hidden="true" />
-                    <p>{highlight}</p>
+                    <p>{highlightText}</p>
                   </article>
                 );
               })}
@@ -227,11 +241,16 @@ export default async function ProjectPage({
               </div>
               <ol className="case-workflow-list">
                 {project.workflow.map((step, index) => (
-                  <li key={step}>
+                  (() => {
+                    const workflowStep = step as unknown as string | { id?: string; label: string };
+                    return (
+                  <li key={typeof workflowStep === 'string' ? workflowStep : (workflowStep.id || workflowStep.label)}>
                     <span className="rfid-step-number">0{index + 1}</span>
-                    <span>{step}</span>
+                    <span>{typeof workflowStep === 'string' ? workflowStep : workflowStep.label}</span>
                     {index < project.workflow.length - 1 && <ArrowRight size={16} aria-hidden="true" />}
                   </li>
+                    );
+                  })()
                 ))}
               </ol>
             </section>

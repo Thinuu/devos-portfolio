@@ -27,7 +27,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { portfolioData } from '@/lib/data';
+import type { PortfolioRelease, AnimationSettings } from '@/lib/schemas/portfolio.schema';
 
 const skillIcons: Record<string, LucideIcon> = {
   frontend: Globe2,
@@ -77,12 +77,27 @@ function SectionHeading({
   );
 }
 
-export default function PortfolioHome() {
+export default function PortfolioHome({
+  data,
+  animations,
+}: {
+  data: PortfolioRelease['content'];
+  animations?: AnimationSettings;
+}) {
   const [activeProjectFilter, setActiveProjectFilter] = useState<(typeof projectFilters)[number]>('All');
   const [showLoader, setShowLoader] = useState(true);
   const reduceMotion = useReducedMotion();
-  const { personal, projects, experience, education, skillCategories } = portfolioData;
-  const filteredProjects = projects.filter(
+  const { personal, projects, experience, education, skillCategories } = data;
+  const hero = data.hero;
+  const visibleProjects = projects.filter((project) => !('hidden' in project && project.hidden));
+  const about = (data as typeof data & { about?: {
+    title?: string;
+    paragraphs?: string[];
+    highlights?: Array<{ title: string; description: string }>;
+    portraitImage?: string;
+    portraitAlt?: string;
+  } }).about;
+  const filteredProjects = visibleProjects.filter(
     (project) => activeProjectFilter === 'All'
       || project.category === activeProjectFilter
       || ('additionalCategories' in project && project.additionalCategories?.includes(activeProjectFilter)),
@@ -128,24 +143,20 @@ export default function PortfolioHome() {
         <section className="hero section-wrap" id="home" aria-labelledby="hero-title">
           <div className="hero-copy">
             <motion.p className="eyebrow hero-eyebrow motion-content" initial="hidden" animate="visible" variants={reveals}>
-              <span className="status-dot" /> FULL-STACK DEVELOPER <span className="eyebrow-slash">/</span> SOFTWARE ENGINEER
+              <span className="status-dot" /> {hero?.eyebrow ?? 'FULL-STACK DEVELOPER'} <span className="eyebrow-slash">/</span> SOFTWARE ENGINEER
             </motion.p>
             <motion.h1 className="motion-content" id="hero-title" initial="hidden" animate="visible" transition={{ delay: 0.08 }} variants={reveals}>
-              Engineering<br />
-              <span className="accent-text">ideas.</span>
-              <br />
-              Crafting<br />
-              experiences<span className="accent-text">.</span>
+              {(hero?.heading ?? 'Engineering ideas. Crafting experiences.').split(/([.!])/).map((part, index) => part === '.' ? <span className="accent-text" key={index}>.</span> : part)}
             </motion.h1>
             <motion.p className="hero-description motion-content" initial="hidden" animate="visible" transition={{ delay: 0.16 }} variants={reveals}>
-              Hi, I&apos;m Thinu Upadya — a Full-Stack Developer and Software Engineer focused on transforming complex ideas into intuitive, scalable, and meaningful digital products.
+              {hero?.description ?? `Hi, I'm ${personal.name} — a ${personal.role} focused on transforming complex ideas into intuitive, scalable, and meaningful digital products.`}
             </motion.p>
             <motion.p className="hero-supporting motion-content" initial="hidden" animate="visible" transition={{ delay: 0.2 }} variants={reveals}>
-              I build modern web applications and digital experiences that bring together clean design, reliable engineering, and practical business value.
+              {hero?.supporting ?? 'I build modern web applications and digital experiences that bring together clean design, reliable engineering, and practical business value.'}
             </motion.p>
             <motion.div className="hero-actions motion-content" initial="hidden" animate="visible" transition={{ delay: 0.24 }} variants={reveals}>
-              <a className="button button-primary" href="#work">Explore my work <ArrowUpRight size={17} /></a>
-              <a className="button button-secondary" href="#contact">Let&apos;s connect <ArrowRight size={16} /></a>
+              <a className="button button-primary" href={hero?.primaryCtaLink || "#work"}>{hero?.primaryCtaLabel || "Explore my work"} <ArrowUpRight size={17} /></a>
+              <a className="button button-secondary" href={hero?.secondaryCtaLink || "#contact"}>{hero?.secondaryCtaLabel || "Let&apos;s connect"} <ArrowRight size={16} /></a>
             </motion.div>
             <motion.div className="social-row motion-content" initial="hidden" animate="visible" transition={{ delay: 0.32 }} variants={reveals}>
               <a href={personal.github} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
@@ -160,8 +171,8 @@ export default function PortfolioHome() {
             <div className="portrait-glow" />
             <div className="portrait-frame">
               <Image
-                src="/images/thinu-profile.png"
-                alt="Thinu Upadya"
+                src={hero?.profileImage || "/images/thinu-profile.png"}
+                alt={personal.name}
                 fill
                 priority
                 sizes="(max-width: 760px) 78vw, 42vw"
@@ -179,34 +190,33 @@ export default function PortfolioHome() {
         </section>
 
         <section className="about section-wrap section-space" id="about" aria-labelledby="about-title">
-          <SectionHeading number="01" eyebrow="BEHIND THE CODE" title="A developer with a passion for building meaningful experiences." id="about-title" />
+          <SectionHeading number="01" eyebrow="BEHIND THE CODE" title={about?.title || "A developer with a passion for building meaningful experiences."} id="about-title" />
           <div className="about-grid">
             <motion.div className="about-intro motion-content" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={reveals}>
               <div className="about-identity">
                 <div className="about-portrait">
-                  <Image src="/images/thinu-profile.png" alt="" width={140} height={170} sizes="70px" />
+                  <Image src={about?.portraitImage || "/images/thinu-profile.png"} alt={about?.portraitAlt || ""} width={140} height={170} sizes="70px" />
                 </div>
                 <div>
                   <span className="card-index">THINU UPADYA / SOFTWARE ENGINEER</span>
                   <p className="large-copy">I work across the stack to turn complex ideas into clear, useful digital products.</p>
                 </div>
               </div>
-              <p className="body-copy">{personal.bio}</p>
+              <div className="body-copy">{(about?.paragraphs?.length ? about.paragraphs : [personal.bio]).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
               <a className="text-link" href="/THINU_UPADYA_CV_Updated.pdf" download>Download my resume <ArrowUpRight size={16} /></a>
             </motion.div>
             <div className="about-aside">
-              <motion.article className="principle-card motion-content" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={reveals}>
-                <span className="card-index">A / APPROACH</span>
-                <Code2 size={20} aria-hidden="true" />
-                <h3>Design with purpose.</h3>
-                <p>Interfaces should make even complex workflows feel considered and easy to understand.</p>
-              </motion.article>
-              <motion.article className="principle-card principle-highlight motion-content" initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ delay: 0.1 }} variants={reveals}>
-                <span className="card-index">B / PRACTICE</span>
-                <BriefcaseBusiness size={20} aria-hidden="true" />
-                <h3>Engineering with care.</h3>
-                <p>I value dependable solutions, maintainable code, and the details that make products work well.</p>
-              </motion.article>
+              {(about?.highlights?.length ? about.highlights : [
+                { title: 'Design with purpose.', description: 'Interfaces should make even complex workflows feel considered and easy to understand.' },
+                { title: 'Engineering with care.', description: 'I value dependable solutions, maintainable code, and the details that make products work well.' },
+              ]).map((highlight, index) => (
+                <motion.article className={`principle-card motion-content${index === 1 ? ' principle-highlight' : ''}`} key={`${highlight.title}-${index}`} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ delay: index * 0.1 }} variants={reveals}>
+                  <span className="card-index">{String.fromCharCode(65 + index)} / HIGHLIGHT</span>
+                  {index % 2 === 0 ? <Code2 size={20} aria-hidden="true" /> : <BriefcaseBusiness size={20} aria-hidden="true" />}
+                  <h3>{highlight.title}</h3>
+                  <p>{highlight.description}</p>
+                </motion.article>
+              ))}
             </div>
           </div>
         </section>
@@ -283,12 +293,16 @@ export default function PortfolioHome() {
             ))}
           </div>
           <p className="project-result-count" aria-live="polite">
-            Showing {filteredProjects.length} of {projects.length} projects
+            Showing {filteredProjects.length} of {visibleProjects.length} projects
           </p>
           <div className="project-grid">
             {filteredProjects.map((project, index) => (
               <motion.article className="project-card motion-content" key={project.id} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} transition={{ delay: index * 0.04 }} variants={reveals}>
                 <Link className={`project-visual project-visual-${project.category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} href={`/projects/${project.id}`} aria-label={`Read the ${project.title} case study`}>
+                  {(() => {
+                    const media = project as unknown as { thumbnail?: string; thumbnailAlt?: string };
+                    return media.thumbnail ? <Image src={media.thumbnail} alt={media.thumbnailAlt || ''} fill sizes="(max-width: 760px) 92vw, 50vw" className="project-thumbnail-image" /> : null;
+                  })()}
                   <span className="project-visual-index">PROJECT / {String(index + 1).padStart(2, '0')}</span>
                   <div className="project-visual-copy">
                     <span className="project-visual-category">{project.category}</span>
@@ -316,6 +330,10 @@ export default function PortfolioHome() {
                         {'linkLabel' in project && project.linkLabel ? project.linkLabel : 'Visit project'} <ArrowUpRight size={16} />
                       </a>
                     )}
+                    {(project as unknown as { links?: Array<string | { label: string; url: string }> }).links?.slice(0, 2).map((item) => {
+                      const link = typeof item === 'string' ? { label: 'Visit project', url: item } : item;
+                      return <a className="text-link" key={link.url} href={link.url} target="_blank" rel="noreferrer">{link.label} <ArrowUpRight size={16} /></a>;
+                    })}
                   </div>
                 </div>
               </motion.article>
