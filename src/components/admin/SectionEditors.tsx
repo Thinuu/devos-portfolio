@@ -88,22 +88,24 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
           title="Paragraphs"
           items={paragraphs.map((text, index) => ({ id: `paragraph-${index}`, text }))}
           onChange={(rows) => patchAbout({ paragraphs: rows.map((row) => String(row.text ?? '')) })}
-          createItem={() => ({ id: `paragraph-${Date.now()}`, text: '' })}
+          createItem={(text) => ({ id: `paragraph-${Date.now()}`, text: text || '' })}
+          primaryField={{ key: 'text', label: 'paragraph text' }}
           itemLabel="Paragraph"
           emptyTitle="No paragraphs yet"
           emptyDescription="Paragraphs form the main About text. Add one or more short sections."
-          getSummary={(row) => String(row.text || '').slice(0, 48) || 'Untitled paragraph'}
+          getSummary={(row) => String(row.text || '').slice(0, 48)}
           renderItem={(row, _index, patch) => <Field label="Paragraph" helperText={`${String(row.text ?? '').length}/2000 characters`}><Textarea maxLength={2000} value={String(row.text ?? '')} onChange={(event) => patch({ text: event.target.value })} /></Field>}
         />
         <RepeaterField
           title="Highlights"
           items={(value.highlights ?? []).map((row, index) => ({ id: `highlight-${index}`, ...row }))}
           onChange={(rows) => patchAbout({ highlights: rows.map(({ id: _id, ...row }) => row) })}
-          createItem={() => ({ id: `highlight-${Date.now()}`, title: '', description: '' })}
+          createItem={(title) => ({ id: `highlight-${Date.now()}`, title: title || '', description: '' })}
+          primaryField={{ key: 'title', label: 'highlight title' }}
           itemLabel="Highlight"
           emptyTitle="No highlights yet"
           emptyDescription="Highlights appear as short bullet points beside your About text."
-          getSummary={(row) => String(row.title || row.description || '') || 'Untitled highlight'}
+          getSummary={(row) => String(row.title || row.description || '')}
           renderItem={(row, _index, patch) => <div className="cms-form-grid"><Field label="Title" required><Input value={String(row.title ?? '')} onChange={(event) => patch({ title: event.target.value })} /></Field><Field label="Description"><Textarea value={String(row.description ?? '')} onChange={(event) => patch({ description: event.target.value })} /></Field></div>}
         />
         <ImageUpload
@@ -205,14 +207,20 @@ export function RepeatEditor({ draft, update, section }: {
     Education: 'Education entries appear in the learning section.',
     Certifications: 'Certifications appear in your CV and portfolio.',
   };
-  const getSummary = (row: RepeatRow) => String(row.label || row.title || row.name || row.role || row.degree || row.command || row.year || row.issuer || '') || 'Untitled';
+  const getSummary = (row: RepeatRow) => String(row.label || row.title || row.name || row.role || row.degree || row.command || row.year || row.issuer || '');
+  const requiredNewFields: Partial<Record<typeof section, Array<{ key: string; label: string; type?: string }>>> = {
+    Stats: [{ key: 'value', label: 'stat value' }],
+    Contact: [{ key: 'url', label: 'contact URL', type: 'url' }],
+    Experience: [{ key: 'company', label: 'company' }, { key: 'period', label: 'period' }],
+    Education: [{ key: 'institution', label: 'institution' }],
+  };
   return (
     <div className="cms-profile-layout">
       <div>
         {!Array.isArray(items) && <p className="cms-warning">Existing data could not be read; safe defaults are shown.</p>}
         {section==='Skills'&&<Field label="Toolkit note"><Textarea value={String(record.familiarityNote||'')} onChange={(event)=>update({...draft,content:{...draft.content,familiarityNote:event.target.value} as PortfolioRelease['content']})}/></Field>}
         {section==='Contact'&&<div className="cms-form cms-contact-copy"><div className="cms-form-grid"><Field label="Heading"><Input value={String((record.contact as Record<string,unknown>|undefined)?.title||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),title:event.target.value}} as PortfolioRelease['content']})}/></Field><Field label="Button text"><Input value={String((record.contact as Record<string,unknown>|undefined)?.buttonLabel||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),buttonLabel:event.target.value}} as PortfolioRelease['content']})}/></Field></div><Field label="Paragraph"><Textarea value={String((record.contact as Record<string,unknown>|undefined)?.description||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),description:event.target.value}} as PortfolioRelease['content']})}/></Field></div>}
-        <RepeaterField title={section} items={items} onChange={change} createItem={createItem} primaryField={{key:section==='Stats'?'label':section==='Timeline'?'title':section==='Tools'?'name':section==='Workflow'?'label':section==='Terminal'?'command':section==='Contact'?'label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'title':'name',label:section==='Stats'?'stat label':section==='Timeline'?'milestone title':section==='Tools'?'tool name':section==='Workflow'?'step label':section==='Terminal'?'command':section==='Contact'?'contact label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'category title':'certification name'}} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
+        <RepeaterField title={section} items={items} onChange={change} createItem={createItem} primaryField={{key:section==='Stats'?'label':section==='Timeline'?'title':section==='Tools'?'name':section==='Workflow'?'label':section==='Terminal'?'command':section==='Contact'?'label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'title':'name',label:section==='Stats'?'stat label':section==='Timeline'?'milestone title':section==='Tools'?'tool name':section==='Workflow'?'step label':section==='Terminal'?'command':section==='Contact'?'contact label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'category title':'certification name'}} requiredFields={requiredNewFields[section]} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
         <AdvancedJson title={section} value={advancedValue} onApply={(value) => section==='Skills' ? (Array.isArray(value)&&change(value as RepeatRow[])) : update({ ...draft, content: { ...draft.content, [section.toLowerCase()]: value } } as PortfolioRelease)} />
       </div>
       <Preview title={`${section} preview`}>
