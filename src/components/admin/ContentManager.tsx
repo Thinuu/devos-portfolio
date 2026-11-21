@@ -47,7 +47,7 @@ function PersonalEditor({ draft, update }: { draft: PortfolioRelease; update: (n
 
   const fields: Array<[keyof typeof draft.content.personal, string, string]> = [
     ['name','Name','text'],['role','Role','text'],['location','Location','text'],['timezone','Timezone','text'],
-    ['email','Email','email'],['phone','Phone','tel'],['github','GitHub','url'],['linkedin','LinkedIn','url'],['responseTime','Response time','text'],
+    ['email','Email','email'],['phone','Phone','tel'],['github','GitHub','url'],['linkedin','LinkedIn','url'],
   ];
   return <form className="cms-form" onSubmit={(event) => event.preventDefault()} onChange={() => void form.handleSubmit(syncPersonal)()}>
     <div className="cms-form-grid">
