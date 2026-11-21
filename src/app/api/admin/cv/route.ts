@@ -1,20 +1,36 @@
-import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/firebase/auth';
-import { listCvProfiles, saveCvProfile } from '@/lib/repositories/career.repository';
-import { cvProfileSchema } from '@/lib/schemas/career.schema';
+import { type NextRequest, NextResponse } from 'next/server';
+import { listCvProfiles, createCvProfile } from '@/lib/repositories/cv.repository';
 
-export const runtime = 'nodejs';
-
-export async function GET() {
-  try { await requireAdmin(); return NextResponse.json({ profiles: await listCvProfiles() }); }
-  catch { return NextResponse.json({ error: 'Administrator access required.' }, { status: 401 }); }
+export async function GET(_req: NextRequest) {
+  try {
+    const profiles = await listCvProfiles();
+    return NextResponse.json({ profiles });
+  } catch (err) {
+    console.error('CV list error:', err);
+    return NextResponse.json({ error: 'Failed to load CV profiles' }, { status: 500 });
+  }
 }
 
-export async function PUT(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin();
-    const parsed = cvProfileSchema.safeParse(await request.json());
-    if (!parsed.success) return NextResponse.json({ error: 'Invalid CV profile.', issues: parsed.error.issues }, { status: 422 });
-    return NextResponse.json({ profile: await saveCvProfile(parsed.data, admin.uid) });
-  } catch { return NextResponse.json({ error: 'Unable to save CV profile.' }, { status: 500 }); }
+    const { name, mode, targetTitle, company } = (await req.json()) as {
+      name: string;
+      mode: 'portfolio' | 'blank';
+      targetTitle?: string;
+      company?: string;
+    };
+    if (!name?.trim()) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+    const profile = await createCvProfile({
+      name: name.trim(),
+      mode,
+      targetTitle: targetTitle?.trim(),
+      company: company?.trim(),
+    });
+    return NextResponse.json({ profile }, { status: 201 });
+  } catch (err) {
+    console.error('CV create error:', err);
+    return NextResponse.json({ error: 'Failed to create CV profile' }, { status: 500 });
+  }
 }

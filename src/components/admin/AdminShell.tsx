@@ -7,7 +7,7 @@ import {
   BarChart3, BriefcaseBusiness, ChevronLeft, ChevronRight, FileText,
   FolderKanban, History, LayoutDashboard, LayoutTemplate, Mail, Menu,
   Palette, Settings, X, Image, Search, CalendarClock, ClipboardList,
-  Rocket, Activity,
+  Rocket, Activity, FileDown,
 } from 'lucide-react';
 import AdminLogout from '@/components/admin/AdminLogout';
 import { readJsonResponse } from '@/lib/http/json';
@@ -16,7 +16,7 @@ import type { PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 const routeTitles: Record<string, string> = {
   seo: 'SEO', media: 'Media library', design: 'Design studio', publishing: 'Publishing & versions',
   'cv-studio': 'CV Studio', 'cv-templates': 'CV templates', 'cover-letters': 'Cover letters',
-  'job-applications': 'Job applications', 'follow-ups': 'Follow-ups',
+  'job-applications': 'Job applications', 'follow-ups': 'Follow-ups', documents: 'Documents',
 };
 const sectionTitles: Record<string, string> = {
   personal: 'Profile', skillCategories: 'Toolkit', workflow: 'Workflow',
@@ -58,6 +58,7 @@ const groups = [
     links: [
       ['CV Studio', '/admin/cv-studio', FileText],
       ['CV templates', '/admin/cv-templates', LayoutTemplate],
+      ['Documents', '/admin/documents', FileDown],
       ['Cover letters', '/admin/cover-letters', Mail],
       ['Job applications', '/admin/job-applications', BriefcaseBusiness],
       ['Interviews', '/admin/interviews', CalendarClock],
@@ -75,7 +76,7 @@ const groups = [
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '/admin';
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [publishStatus, setPublishStatus] = useState('Draft workspace');
@@ -206,9 +207,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="admin-topbar">
           <span className="admin-breadcrumb">{breadcrumb(pathname)}</span>
           <div className="admin-topbar-actions">
-            <span className="admin-status-chip" title={publishedTime ? publishedTime.toLocaleString() : undefined}><span /> {publishedTime ? `Published · ${formatPublished(publishedTime)}` : publishStatus} <strong className="admin-change-count">{unpublishedChanges} unpublished change{unpublishedChanges === 1 ? '' : 's'}</strong></span>
-            <a href="/" target="_blank" rel="noreferrer">Preview</a>
-            <button className="admin-topbar-publish" type="button" onClick={requestPublish} disabled={publishLoading}>{publishLoading ? 'Loading…' : 'Publish'}</button>
+            {!pathname.startsWith('/admin/cv-') && !pathname.startsWith('/admin/documents') && (
+              <>
+                <span className="admin-status-chip" title={publishedTime ? publishedTime.toLocaleString() : undefined}>
+                  <span /> {publishedTime ? `Published · ${formatPublished(publishedTime)}` : publishStatus}{' '}
+                  <strong className="admin-change-count">{unpublishedChanges} unpublished change{unpublishedChanges === 1 ? '' : 's'}</strong>
+                </span>
+                <a href="/" target="_blank" rel="noreferrer">Preview</a>
+                <button className="admin-topbar-publish" type="button" onClick={requestPublish} disabled={publishLoading}>
+                  {publishLoading ? 'Loading…' : 'Publish'}
+                </button>
+              </>
+            )}
           </div>
         </div>
         {children}

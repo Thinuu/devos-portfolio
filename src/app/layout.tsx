@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   description: 'Explore the portfolio of Thinu Upadya, a full-stack developer and software engineer building modern web applications, digital products, and thoughtful user experiences.',
   keywords: ['Thinu Upadya', 'Software Engineer', 'Full-Stack Developer', 'React', 'Node.js', 'Sri Lanka'],
   authors: [{ name: 'Thinu Upadya' }],
+  icons: {
+    icon: '/icon.svg',
+  },
   alternates: {
     canonical: '/',
   },
