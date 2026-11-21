@@ -276,6 +276,15 @@ export default function ContentManager({ section }: { section: Section }) {
       const normalized = JSON.parse(JSON.stringify(loaded)) as PortfolioRelease;
       const content = normalized.content as unknown as Record<string, unknown>;
       let seeded = false;
+      const hero = (content.hero && typeof content.hero === 'object' ? content.hero : {}) as Record<string, unknown>;
+      const heroDefaults = portfolioData.hero as unknown as Record<string, unknown>;
+      for (const key of ['eyebrow', 'heading', 'description', 'supporting', 'profileImage', 'primaryCtaLabel', 'primaryCtaLink', 'secondaryCtaLabel', 'secondaryCtaLink', 'layout', 'portraitCaption', 'floatingLabelTop', 'floatingLabelBottom', 'scrollHintText']) {
+        if (!displayText(hero[key]).trim()) { hero[key] = heroDefaults[key]; seeded = true; }
+      }
+      if (hero.heading === 'Engineering ideas. Crafting experiences.') { hero.heading = heroDefaults.heading; seeded = true; }
+      if (hero.profileImage && !displayText(hero.profileImageAlt).trim()) { hero.profileImageAlt = heroDefaults.profileImageAlt || normalized.content.personal.name; seeded = true; }
+      if (!Array.isArray(hero.socialLinks) || hero.socialLinks.length === 0) { hero.socialLinks = heroDefaults.socialLinks; seeded = true; }
+      content.hero = hero;
       const contact = (content.contact && typeof content.contact === 'object' ? content.contact : {}) as Record<string, unknown>;
       const contactDefaults = portfolioData.contact as Record<string, unknown>;
       for (const key of ['title', 'description', 'buttonLabel']) {

@@ -7,10 +7,12 @@ import { z } from 'zod';
 import RepeaterField, { type RepeaterItem } from '@/components/admin/RepeaterField';
 import ImageUpload from '@/components/admin/ImageUpload';
 import { displayText, displayTextList, Field, Input, Select, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
+import HeroSection from '@/components/portfolio/HeroSection';
 import type { PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 import { portfolioData } from '@/lib/data';
 import { deriveFlatSkills } from '@/lib/projects/toolkit';
 
+const heroLinkSchema = z.string().max(500).refine((value) => !value || value.startsWith('#') || value.startsWith('/') || /^https?:\/\//i.test(value), 'Use a web URL, local path, or section anchor.');
 const heroSchema = z.object({
   eyebrow: z.string().min(1).max(200),
   heading: z.string().min(1).max(500),
@@ -19,10 +21,19 @@ const heroSchema = z.object({
   profileImage: z.string().min(1).max(500),
   profileImageAlt: z.string().max(160).optional(),
   primaryCtaLabel: z.string().max(80).optional(),
-  primaryCtaLink: z.union([z.string().url(), z.literal('')]).optional(),
+  primaryCtaLink: heroLinkSchema.optional(),
   secondaryCtaLabel: z.string().max(80).optional(),
-  secondaryCtaLink: z.union([z.string().url(), z.literal('')]).optional(),
+  secondaryCtaLink: heroLinkSchema.optional(),
+  socialLinks: z.array(z.object({ id: z.string().optional(), label: z.string().min(1).max(80), url: heroLinkSchema, icon: z.string().max(40).optional() })).max(12).optional(),
+  portraitCaption: z.string().max(240).optional(),
+  floatingLabelTop: z.string().max(120).optional(),
+  floatingLabelBottom: z.string().max(120).optional(),
+  scrollHintText: z.string().max(120).optional(),
   layout: z.enum(['split', 'centered', 'terminal', 'minimal']).optional(),
+}).superRefine((hero, ctx) => {
+  if (hero.profileImage && !hero.profileImageAlt?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['profileImageAlt'], message: 'Alt text is required when a hero image is set.' });
+  }
 });
 
 type HeroValue = z.infer<typeof heroSchema>;
@@ -242,9 +253,11 @@ function Preview({ title, children }: { title: string; children: ReactNode }) {
 
 export function HeroEditor({ draft, update }: { draft: PortfolioRelease; update: (next: PortfolioRelease) => void }) {
   const record = draft.content as unknown as Record<string, unknown>;
-  const fallback: HeroValue = { eyebrow: '', heading: '', description: '', supporting: '', profileImage: '/images/thinu-profile.png', profileImageAlt: 'Thinu Upadya', layout: 'split' };
-  const parsed = heroSchema.safeParse(record.hero ?? fallback);
+  const fallback = portfolioData.hero as unknown as HeroValue;
+  const heroValue = { ...fallback, ...(record.hero && typeof record.hero === 'object' ? record.hero : {}) } as HeroValue;
+  const parsed = heroSchema.safeParse(heroValue);
   const form = useForm<HeroValue>({ resolver: zodResolver(heroSchema), defaultValues: parsed.success ? parsed.data : fallback, mode: 'onChange' });
+  const [previewOpen, setPreviewOpen] = useState(true);
   useEffect(() => { if (parsed.success) form.reset(parsed.data); }, [JSON.stringify(record.hero)]);
 
   function sync(values: HeroValue) {
@@ -253,32 +266,58 @@ export function HeroEditor({ draft, update }: { draft: PortfolioRelease; update:
 
   const values = form.watch();
   return (
-    <div className="cms-profile-layout">
+    <div className="cms-profile-layout cms-hero-editor-layout">
       <form className="cms-form" onSubmit={(event) => event.preventDefault()} onChange={() => void form.handleSubmit(sync)()}>
         {!parsed.success && <p className="cms-warning">Existing Hero data was malformed; safe defaults are shown.</p>}
         <div className="cms-form-grid">
           <Field label="Eyebrow" required error={form.formState.errors.eyebrow?.message}><Input {...form.register('eyebrow')} /></Field>
           <Field label="Layout"><Select {...form.register('layout')}><option value="split">Split</option><option value="centered">Centered</option><option value="terminal">Terminal</option><option value="minimal">Minimal</option></Select></Field>
         </div>
-        <Field label="Heading" required error={form.formState.errors.heading?.message}><Input {...form.register('heading')} /></Field>
+        <Field label="Heading" required helperText="Wrap words to accent in square brackets, for example: Engineering [ideas.] Crafting [experiences.]" error={form.formState.errors.heading?.message}><Input {...form.register('heading')} /></Field>
         <Field label="Description" required helperText={`${form.watch('description')?.length ?? 0}/2000 characters`}><Textarea maxLength={2000} {...form.register('description')} /></Field>
         <Field label="Supporting text" helperText={`${form.watch('supporting')?.length ?? 0}/2000 characters`}><Textarea maxLength={2000} {...form.register('supporting')} /></Field>
         <div className="cms-form-grid">
           <Field label="Primary CTA label"><Input {...form.register('primaryCtaLabel')} /></Field>
-          <Field label="Primary CTA link" error={form.formState.errors.primaryCtaLink?.message}><Input type="url" {...form.register('primaryCtaLink')} /></Field>
+          <Field label="Primary CTA link" helperText="Use a URL, /path, or #section anchor." error={form.formState.errors.primaryCtaLink?.message}><Input {...form.register('primaryCtaLink')} /></Field>
           <Field label="Secondary CTA label"><Input {...form.register('secondaryCtaLabel')} /></Field>
-          <Field label="Secondary CTA link" error={form.formState.errors.secondaryCtaLink?.message}><Input type="url" {...form.register('secondaryCtaLink')} /></Field>
+          <Field label="Secondary CTA link" helperText="Use a URL, /path, or #section anchor." error={form.formState.errors.secondaryCtaLink?.message}><Input {...form.register('secondaryCtaLink')} /></Field>
         </div>
+        <div className="cms-form-grid">
+          <Field label="Portrait caption"><Input {...form.register('portraitCaption')} /></Field>
+          <Field label="Floating label (top)"><Input {...form.register('floatingLabelTop')} /></Field>
+          <Field label="Floating label (bottom)"><Input {...form.register('floatingLabelBottom')} /></Field>
+          <Field label="Scroll hint"><Input {...form.register('scrollHintText')} /></Field>
+        </div>
+        <RepeaterField
+          title="Social links"
+          items={(values.socialLinks ?? []).map((link, index) => ({ id: link.id || `hero-social-${index}`, ...link }))}
+          itemLabel="Social link"
+          primaryField={{ key: 'label', label: 'link label' }}
+          requiredFields={[{ key: 'url', label: 'link URL' }]}
+          getSummary={(link) => displayText(link.label)}
+          createItem={(label) => ({ id: `hero-social-${Date.now()}`, label: label || '', url: '', icon: 'ArrowUpRight' })}
+          onChange={(rows) => {
+            const socialLinks = rows.map(({ label, url, icon }) => ({ label: displayText(label), url: displayText(url), icon: displayText(icon) }));
+            form.setValue('socialLinks', socialLinks, { shouldDirty: true, shouldValidate: true });
+            sync({ ...form.getValues(), socialLinks });
+          }}
+          renderItem={(link, _index, patch) => <div className="cms-form-grid"><Field label="Label" required><Input value={displayText(link.label)} onChange={(event) => patch({ label: event.target.value })} /></Field><Field label="URL" required><Input value={displayText(link.url)} onChange={(event) => patch({ url: event.target.value })} /></Field><Field label="Icon"><Input value={displayText(link.icon)} onChange={(event) => patch({ icon: event.target.value })} /></Field></div>}
+        />
         <ImageUpload
           label="Hero image"
           value={form.watch('profileImage')}
           alt={form.watch('profileImageAlt')}
-          onChange={(path) => { form.setValue('profileImage', path, { shouldDirty: true }); sync({ ...form.getValues(), profileImage: path }); }}
-          onAltChange={(alt) => { form.setValue('profileImageAlt', alt, { shouldDirty: true }); sync({ ...form.getValues(), profileImageAlt: alt }); }}
+          altRequired
+          altError={form.formState.errors.profileImageAlt?.message}
+          onChange={(path) => { form.setValue('profileImage', path, { shouldDirty: true, shouldValidate: true }); const next = { ...form.getValues(), profileImage: path }; sync(next); void form.trigger('profileImageAlt'); }}
+          onAltChange={(alt) => { form.setValue('profileImageAlt', alt, { shouldDirty: true, shouldValidate: true }); sync({ ...form.getValues(), profileImageAlt: alt }); }}
         />
         <AdvancedJson title="Hero" value={record.hero ?? fallback} validate={(value) => heroSchema.safeParse(value)} onApply={(value) => { const result = heroSchema.safeParse(value); if (result.success) sync(result.data); }} />
       </form>
-      <Preview title="Hero preview"><span className="cms-preview-eyebrow">{values.eyebrow}</span><h3>{values.heading}</h3><p>{values.description}</p><p>{values.supporting}</p></Preview>
+      <aside className="cms-live-preview cms-hero-real-preview">
+        <div className="cms-preview-header"><h2>Hero preview</h2><button type="button" className="admin-button" onClick={() => setPreviewOpen((open) => !open)}>{previewOpen ? 'Collapse' : 'Expand'}</button></div>
+        {previewOpen && <div className="cms-hero-real-frame"><HeroSection hero={values as unknown as PortfolioRelease['content']['hero']} personal={draft.content.personal} animated={false} /></div>}
+      </aside>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion';
 import TULogo from '@/components/brand/TULogo';
 import SiteHeader from '@/components/portfolio/SiteHeader';
+import HeroSection from '@/components/portfolio/HeroSection';
 import { getProjectLinks } from '@/lib/projects/links';
 import {
   ArrowDown,
@@ -144,54 +145,7 @@ export default function PortfolioHome({
       <SiteHeader />
 
       <main id="main">
-        <section className="hero section-wrap" id="home" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <motion.p className="eyebrow hero-eyebrow motion-content" initial="hidden" animate="visible" variants={reveals}>
-              <span className="status-dot" /> {hero?.eyebrow ?? 'FULL-STACK DEVELOPER / SOFTWARE ENGINEER'}
-            </motion.p>
-            <motion.h1 className="motion-content" id="hero-title" initial="hidden" animate="visible" transition={{ delay: 0.08 }} variants={reveals}>
-              {(hero?.heading ?? 'Engineering ideas. Crafting experiences.').split(/([.!])/).map((part, index) => part === '.' ? <span className="accent-text" key={index}>.</span> : part)}
-            </motion.h1>
-            <motion.p className="hero-description motion-content" initial="hidden" animate="visible" transition={{ delay: 0.16 }} variants={reveals}>
-              {hero?.description ?? `Hi, I'm ${personal.name} — a ${personal.role} focused on transforming complex ideas into intuitive, scalable, and meaningful digital products.`}
-            </motion.p>
-            <motion.p className="hero-supporting motion-content" initial="hidden" animate="visible" transition={{ delay: 0.2 }} variants={reveals}>
-              {hero?.supporting ?? 'I build modern web applications and digital experiences that bring together clean design, reliable engineering, and practical business value.'}
-            </motion.p>
-            <motion.div className="hero-actions motion-content" initial="hidden" animate="visible" transition={{ delay: 0.24 }} variants={reveals}>
-              <a className="button button-primary" href={hero?.primaryCtaLink || "#work"}>{hero?.primaryCtaLabel || "Explore my work"} <ArrowUpRight size={17} /></a>
-              <a className="button button-secondary" href={hero?.secondaryCtaLink || "#contact"}>{hero?.secondaryCtaLabel || "Let&apos;s connect"} <ArrowRight size={16} /></a>
-            </motion.div>
-            <motion.div className="social-row motion-content" initial="hidden" animate="visible" transition={{ delay: 0.32 }} variants={reveals}>
-              <a href={personal.github} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
-              <a href={personal.linkedin} target="_blank" rel="noreferrer"><Linkedin size={16} /> LinkedIn</a>
-              <a href="/THINU_UPADYA_CV_Updated.pdf" download><ArrowDown size={15} /> Resume</a>
-            </motion.div>
-          </div>
-
-          <motion.div className="portrait-stage motion-content" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.12 }}>
-            <div className="portrait-orbit orbit-one" />
-            <div className="portrait-orbit orbit-two" />
-            <div className="portrait-glow" />
-            <div className="portrait-frame">
-              <Image
-                src={hero?.profileImage || "/images/thinu-profile.png"}
-                alt={personal.name}
-                fill
-                priority
-                sizes="(max-width: 760px) 78vw, 42vw"
-                className="portrait-image"
-              />
-              <div className="portrait-caption">
-                <span>THINU UPADYA</span>
-                <span>SOFTWARE ENGINEER · SRI LANKA</span>
-              </div>
-            </div>
-            <div className="portrait-note note-top"><span>01</span> CODE × DESIGN</div>
-            <div className="portrait-note note-bottom">BUILT WITH INTENTION <span>↗</span></div>
-          </motion.div>
-          <div className="hero-bottomline"><span>SCROLL TO EXPLORE</span><span>01 — 06</span></div>
-        </section>
+        <HeroSection hero={hero} personal={personal} />
 
         <section className="about section-wrap section-space" id="about" aria-labelledby="about-title">
           <SectionHeading number="01" eyebrow="BEHIND THE CODE" title={about?.title || "A developer with a passion for building meaningful experiences."} id="about-title" />

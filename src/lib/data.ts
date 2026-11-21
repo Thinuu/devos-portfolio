@@ -32,8 +32,8 @@ export const portfolioData = {
   },
   hero: {
     eyebrow: 'FULL-STACK DEVELOPER / SOFTWARE ENGINEER',
-    heading: 'Engineering ideas. Crafting experiences.',
-    description: 'Hi, I’m Thinu Upadya — a Full-Stack Developer and Software Engineer focused on transforming complex ideas into intuitive, scalable, and meaningful digital products.',
+    heading: 'Engineering [ideas.] Crafting [experiences.]',
+    description: "Hi, I'm Thinu Upadya - a Full-Stack Developer and Software Engineer focused on transforming complex ideas into intuitive, scalable, and meaningful digital products.",
     supporting: 'I build modern web applications and digital experiences that bring together clean design, reliable engineering, and practical business value.',
     profileImage: '/images/thinu-profile.png',
     profileImageAlt: 'Thinu Upadya',
@@ -41,6 +41,15 @@ export const portfolioData = {
     primaryCtaLink: '#work',
     secondaryCtaLabel: "Let's connect",
     secondaryCtaLink: '#contact',
+    socialLinks: [
+      { label: 'GitHub', url: 'https://github.com/Thinuu', icon: 'Github' },
+      { label: 'LinkedIn', url: 'https://www.linkedin.com/in/thinu-upadya/', icon: 'Linkedin' },
+      { label: 'Resume', url: '/THINU_UPADYA_CV_Updated.pdf', icon: 'Download' },
+    ],
+    portraitCaption: 'THINU UPADYA | SOFTWARE ENGINEER | SRI LANKA',
+    floatingLabelTop: '01 CODE x DESIGN',
+    floatingLabelBottom: 'BUILT WITH INTENTION',
+    scrollHintText: 'SCROLL TO EXPLORE',
     layout: 'split',
   },
   about: {
