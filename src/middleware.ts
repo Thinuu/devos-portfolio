@@ -4,6 +4,9 @@ const cookieName = process.env.AUTH_COOKIE_NAME || 'portfolio_session';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === '/admin/login' || pathname.startsWith('/admin/login/') || pathname === '/api/auth/session') {
+    return NextResponse.next();
+  }
   const isProtectedAdminRoute =
     pathname === '/admin'
     || pathname.startsWith('/admin/')
