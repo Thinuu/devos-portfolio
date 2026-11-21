@@ -157,3 +157,14 @@
 .cms-project-form .cms-control{background:var(--surface)}
 .cms-sticky-actions{min-height:72px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 .admin-main{padding-bottom:calc(124px + env(safe-area-inset-bottom))}
+.admin-shell{--admin-sidebar-width:240px;--cms-savebar-height:72px}
+.admin-shell.is-collapsed{--admin-sidebar-width:78px}
+.cms-sticky-actions{left:var(--admin-sidebar-width);right:auto;width:min(calc(100vw - var(--admin-sidebar-width)),1280px);max-width:1280px;min-height:var(--cms-savebar-height);box-sizing:border-box}
+.cms-savebar-status{min-width:0;display:flex;align-items:center;gap:10px;margin-right:auto}
+.cms-savebar-status>span{min-width:0;overflow-wrap:anywhere;color:var(--muted);font:500 11px/1.4 var(--font-mono)}
+.cms-savebar-status>span.is-dirty{color:#e7a94b}
+.cms-savebar-retry{border:0;background:transparent;color:#e98a95;text-decoration:underline;text-underline-offset:2px;font:600 11px var(--font-body);cursor:pointer}
+.cms-savebar-buttons{display:flex;align-items:center;gap:7px}
+.admin-main{padding-bottom:calc(var(--cms-savebar-height) + 24px + env(safe-area-inset-bottom))}
+@media(max-width:800px){.admin-shell{--admin-sidebar-width:0px}.cms-sticky-actions,.admin-shell.is-collapsed .cms-sticky-actions{left:0;right:auto;width:min(100vw,1280px);padding-left:18px;padding-right:18px}}
+@media(max-width:480px){.admin-shell{--cms-savebar-height:132px}.cms-sticky-actions{padding:10px 18px calc(10px + env(safe-area-inset-bottom))}.cms-savebar-status{width:100%}.cms-savebar-buttons{width:100%;display:flex}.cms-savebar-buttons .admin-button{flex:1}}

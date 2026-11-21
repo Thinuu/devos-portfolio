@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, GripVertical, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { personalSchema, projectSchema, type PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 import { AboutEditor, HeroEditor, RepeatEditor } from '@/components/admin/SectionEditors';
 import ImageUpload from '@/components/admin/ImageUpload';
 import { Field, Input, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
+import DraftSaveBar from '@/components/admin/DraftSaveBar';
 import { readJsonResponse } from '@/lib/http/json';
 import RepeaterField from '@/components/admin/RepeaterField';
 import { editorRowsToHighlights, highlightsToEditorRows } from '@/lib/projects/highlights';
@@ -245,6 +246,7 @@ export default function ContentManager({ section }: { section: Section }) {
   const [draft,setDraft]=useState<PortfolioRelease|null>(null);
   const [published,setPublished]=useState<PortfolioRelease|null>(null);
   const [saveState,setSaveState]=useState('Loading draft…');
+  const [saveError,setSaveError]=useState('');
   const [dirty,setDirty]=useState(false);
   const [toast,setToast]=useState<{type:'success'|'error';text:string}|null>(null);
   const [review,setReview]=useState(false);
@@ -265,8 +267,9 @@ export default function ContentManager({ section }: { section: Section }) {
   const save=useCallback(async(next?:PortfolioRelease)=>{
     if(!latest.current&&!next)return;
     const value=next??latest.current!;
+    setSaveError('');
     setSaveState('Saving…');
-    try{const response=await fetch('/api/admin/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});if(!response.ok){const payload=await readJsonResponse<{error?:string;failures?:FormattedValidationIssue[]}>(response);setValidationFailures(payload?.failures??[]);throw new Error(payload?.error||'Draft validation failed');}setValidationFailures([]);setDirty(false);baseline.current=JSON.parse(JSON.stringify(value));setSaveState(`Saved ${new Intl.DateTimeFormat('en',{hour:'numeric',minute:'2-digit'}).format(new Date())}`);window.dispatchEvent(new CustomEvent('admin-draft-changed',{detail:{count:1}}));}catch(error){setSaveState(error instanceof Error?error.message:'Unable to save draft')}},
+    try{const response=await fetch('/api/admin/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});if(!response.ok){const payload=await readJsonResponse<{error?:string;failures?:FormattedValidationIssue[]}>(response);setValidationFailures(payload?.failures??[]);throw new Error(payload?.error||'Draft validation failed');}setValidationFailures([]);setDirty(false);baseline.current=JSON.parse(JSON.stringify(value));setSaveState(`Saved ${new Intl.DateTimeFormat('en',{hour:'numeric',minute:'2-digit'}).format(new Date())}`);window.dispatchEvent(new CustomEvent('admin-draft-changed',{detail:{count:1}}));}catch(error){const message=error instanceof Error?error.message:'Unable to save draft';setSaveState(message);setSaveError(message)}},
   []);
   useEffect(()=>{if(!dirty||!draft)return;setSaveState('Unsaved changes');const timer=window.setTimeout(()=>save(draft),1500);return()=>window.clearTimeout(timer)},[draft,dirty,save]);
   useEffect(()=>{function beforeUnload(event:BeforeUnloadEvent){if(dirty){event.preventDefault();event.returnValue=''}}window.addEventListener('beforeunload',beforeUnload);return()=>window.removeEventListener('beforeunload',beforeUnload)},[dirty]);
@@ -281,6 +284,7 @@ export default function ContentManager({ section }: { section: Section }) {
   function discard() {
     if (baseline.current) setDraft(JSON.parse(JSON.stringify(baseline.current)));
     setDirty(false);
+    setSaveError('');
     setSaveState('No unsaved changes');
   }
   async function publish(){if(!draft)return;try{setSaveState('Publishing…');const response=await fetch('/api/admin/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});if(!response.ok){const payload=await readJsonResponse<{error?:string}>(response);throw new Error(payload?.error||'Publishing failed');}const result=await readJsonResponse<{publishedAt?:string}>(response);setPublished(draft);setDirty(false);setSaveState(`Published ${new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(new Date())}`);setReview(false);setToast({type:'success',text:'Portfolio published successfully.'});window.dispatchEvent(new CustomEvent('admin-published',{detail:{time:result?.publishedAt}}));}catch(error){setReview(false);setToast({type:'error',text:error instanceof Error?error.message:'Unable to publish. Please retry.'})}}
@@ -346,10 +350,7 @@ export default function ContentManager({ section }: { section: Section }) {
       {section==='Terminal'&&<RepeatEditor section="Terminal" draft={draft} update={update}/>}
       {section==='Contact'&&<RepeatEditor section="Contact" draft={draft} update={update}/>}
     </section>
-    <div className="cms-sticky-actions" aria-live="polite">
-      <span className={dirty?'is-dirty':''}>{saveState}</span>
-      <div><button type="button" className="admin-button" disabled={!dirty} onClick={discard}><RotateCcw size={15}/> Discard</button><button type="button" className="admin-button primary" disabled={!dirty || saveState==='Saving…'} onClick={()=>void save()}>{saveState==='Saving…'?'Saving…':'Save draft'}</button></div>
-    </div>
+    <DraftSaveBar state={saveState} dirty={dirty} error={saveError} onDiscard={discard} onSave={()=>void save()} onRetry={()=>void save()} />
     {review&&<div className="cms-dialog-backdrop" role="presentation"><div className="cms-dialog" role="dialog" aria-modal="true" aria-labelledby="publish-title"><p className="admin-eyebrow">Review changes</p><h2 id="publish-title">Publish portfolio</h2><p>Changed sections will replace the live public release after confirmation.</p><div className="cms-diff">{sections.filter(item=>item==='Profile'||item==='Projects'||item==='Hero'||item==='About'||item==='Skills'||item==='Tools'||item==='Experience'||item==='Education'||item==='Certifications'||item==='Timeline'||item==='Stats'||item==='Workflow'||item==='Terminal'||item==='Contact').map(item=><div key={item}><span>{item}</span><span className={dirty?'is-changed':'is-current'}>{dirty?'Draft changed':'Unchanged'}</span></div>)}</div><div className="cms-dialog-actions"><button className="admin-button" onClick={()=>setReview(false)}>Cancel</button><button className="admin-button primary" onClick={publish}>Confirm publish</button></div></div></div>}
     {toast&&<div className={`cms-toast ${toast.type}`} role="status" aria-live="polite"><CheckCircle2 size={18}/><span>{toast.text}</span>{toast.type==='error'&&<button onClick={publish}>Retry</button>}</div>}
   </>;
