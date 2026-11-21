@@ -8,6 +8,7 @@ const sectionLabels: Record<string, string> = {
 const collectionKeys: Record<string, string> = {
   projects: 'projects', tools: 'tools', experience: 'experience', education: 'education',
   certifications: 'certifications', timeline: 'timeline', stats: 'stats', workflow: 'workflow',
+  skillCategories: 'skillCategories',
 };
 
 export type FormattedValidationIssue = {
@@ -42,6 +43,19 @@ export function formatValidationIssues(
         item = String(entry?.label || entry?.command || (sectionKey === 'contact' ? 'Contact link' : 'Command'));
         fieldPath = fieldPath.slice(2);
       } else item = sectionKey === 'contact' ? 'Contact details' : 'Terminal settings';
+    } else if (sectionKey === 'about' && ['paragraphs', 'highlights'].includes(fieldPath[0] || '') && /^\d+$/.test(fieldPath[1] || '')) {
+      itemIndex = Number(fieldPath[1]);
+      const about = firstValue && typeof firstValue === 'object' ? firstValue as Record<string, unknown> : {};
+      if (fieldPath[0] === 'paragraphs') {
+        item = `About paragraph ${itemIndex + 1}`;
+        fieldPath = fieldPath.slice(2);
+        if (fieldPath.length === 0) fieldPath = ['text'];
+      } else {
+        const highlights = about.highlights as Array<Record<string, unknown>> | undefined;
+        const highlight = Array.isArray(highlights) ? highlights[itemIndex] : undefined;
+        item = String(highlight?.title || `About highlight ${itemIndex + 1}`);
+        fieldPath = fieldPath.slice(2);
+      }
     } else if (collectionKeys[sectionKey] && /^\d+$/.test(fieldPath[0] || '')) {
       itemIndex = Number(fieldPath[0]);
       const rows = firstValue as Array<Record<string, unknown>> | undefined;

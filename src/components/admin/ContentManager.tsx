@@ -74,7 +74,11 @@ function PersonalEditor({ draft, update }: { draft: PortfolioRelease; update: (n
 
 function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (next: PortfolioRelease) => void }) {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const requested = Number(new URLSearchParams(window.location.search).get('item'));
+    return Number.isInteger(requested) && requested >= 0 ? requested : 0;
+  });
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [slugEdited, setSlugEdited] = useState(false);
@@ -88,6 +92,10 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
   });
   const form = useForm<ProjectInput>({ resolver: zodResolver(projectSchema), defaultValues: (projects[selected] as unknown as ProjectInput) ?? projectSchema.parse({ id:'',title:'',shortDesc:'',fullDesc:'',stack:[],type:'',category:'',status:'',year:'',employer:'' }), mode:'onChange' });
   useEffect(() => { if (projects[selected]) form.reset(projects[selected] as unknown as ProjectInput); setSlugEdited(false); }, [selected]);
+  useEffect(() => {
+    const requested = Number(new URLSearchParams(window.location.search).get('item'));
+    if (Number.isInteger(requested) && requested >= 0 && requested < projects.length) setSelected(requested);
+  }, []);
 
   function syncProject(values: ProjectInput) {
     const next = [...projects];
@@ -261,6 +269,14 @@ export default function ContentManager({ section }: { section: Section }) {
 
   const load=useCallback(async()=>{try{const [draftResponse,publishedResponse]=await Promise.all([fetch('/api/admin/draft'),fetch('/api/admin/publish')]);if(!draftResponse.ok)throw new Error('Unable to load draft');const loaded=await readJsonResponse<PortfolioRelease>(draftResponse);if(!loaded)throw new Error('Draft response was empty or invalid.');const normalized=JSON.parse(JSON.stringify(loaded)) as PortfolioRelease;const content=normalized.content as unknown as Record<string,unknown>;let seeded=false;const contact=(content.contact&&typeof content.contact==='object'?content.contact:{}) as Record<string,unknown>;const contactDefaults=portfolioData.contact as Record<string,unknown>;if(!String(contact.title||'').trim()){contact.title=contactDefaults.title;seeded=true}if(!String(contact.description||'').trim()){contact.description=contactDefaults.description;seeded=true}if(!String(contact.buttonLabel||'').trim()){contact.buttonLabel=contactDefaults.buttonLabel;seeded=true}if(!Array.isArray(contact.links)||contact.links.length===0){contact.links=contactDefaults.links;seeded=true}else{const links=contact.links as Array<Record<string,unknown>>;const clean=links.filter((link)=>String(link.label||'').trim()||String(link.url||'').trim());if(clean.length!==links.length){contact.links=clean;seeded=true}if(clean.length===0){contact.links=contactDefaults.links;seeded=true}}content.contact=contact;const terminal=(content.terminal&&typeof content.terminal==='object'?content.terminal:{}) as Record<string,unknown>;const terminalDefaults=portfolioData.terminal as Record<string,unknown>;if(!String(terminal.welcome||'').trim()){terminal.welcome=terminalDefaults.welcome;seeded=true}if(!String(terminal.prompt||'').trim()){terminal.prompt=terminalDefaults.prompt;seeded=true}if(!Array.isArray(terminal.help)||terminal.help.length===0){terminal.help=terminalDefaults.help;seeded=true}if(!Array.isArray(terminal.commands)||terminal.commands.length===0){terminal.commands=terminalDefaults.commands;seeded=true}else{const commands=terminal.commands as Array<Record<string,unknown>>;const clean=commands.filter((command)=>String(command.command||'').trim());if(clean.length!==commands.length){terminal.commands=clean;seeded=true}if(clean.length===0){terminal.commands=terminalDefaults.commands;seeded=true}}content.terminal=terminal;const skills=(content.skills&&typeof content.skills==='object'?content.skills:{}) as Record<string,unknown>;for(const [category,rows] of Object.entries(skills)){if(!Array.isArray(rows))continue;const clean=rows.filter((row)=>row&&typeof row==='object'&&String((row as {name?:unknown}).name||'').trim());if(clean.length!==rows.length){skills[category]=clean;seeded=true}}content.skills=skills;setDraft(normalized);baseline.current=JSON.parse(JSON.stringify(normalized));if(publishedResponse.ok)setPublished(await readJsonResponse<PortfolioRelease>(publishedResponse));if(seeded){setDirty(true);setSaveState('Empty items removed; defaults repaired');}else setSaveState('No unsaved changes');}catch(error){setSaveState(error instanceof Error?error.message:'Unable to load draft')}},[]);
   useEffect(()=>{load()},[load]);
+  useEffect(()=>{
+    try {
+      const saved = window.sessionStorage.getItem('admin-draft-validation-failures');
+      if (saved) setValidationFailures(JSON.parse(saved) as FormattedValidationIssue[]);
+    } catch {
+      window.sessionStorage.removeItem('admin-draft-validation-failures');
+    }
+  },[]);
   useEffect(()=>{function publishRequest(){setReview(true)}window.addEventListener('admin-publish-request',publishRequest);return()=>window.removeEventListener('admin-publish-request',publishRequest)},[]);
   useEffect(()=>{function validation(event:Event){const detail=(event as CustomEvent<{section:string;error:boolean}>).detail;setErrorSections((current)=>{const next=new Set(current);detail.error?next.add(detail.section):next.delete(detail.section);return next})}window.addEventListener('admin-section-validation',validation);return()=>window.removeEventListener('admin-section-validation',validation)},[]);
 
@@ -269,7 +285,7 @@ export default function ContentManager({ section }: { section: Section }) {
     const value=next??latest.current!;
     setSaveError('');
     setSaveState('Saving…');
-    try{const response=await fetch('/api/admin/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});if(!response.ok){const payload=await readJsonResponse<{error?:string;failures?:FormattedValidationIssue[]}>(response);setValidationFailures(payload?.failures??[]);throw new Error(payload?.error||'Draft validation failed');}setValidationFailures([]);setDirty(false);baseline.current=JSON.parse(JSON.stringify(value));setSaveState(`Saved ${new Intl.DateTimeFormat('en',{hour:'numeric',minute:'2-digit'}).format(new Date())}`);window.dispatchEvent(new CustomEvent('admin-draft-changed',{detail:{count:1}}));}catch(error){const message=error instanceof Error?error.message:'Unable to save draft';setSaveState(message);setSaveError(message)}},
+    try{const response=await fetch('/api/admin/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});if(!response.ok){const payload=await readJsonResponse<{error?:string;failures?:FormattedValidationIssue[]}>(response);const failures=payload?.failures??[];setValidationFailures(failures);window.sessionStorage.setItem('admin-draft-validation-failures',JSON.stringify(failures));throw new Error(payload?.error||'Draft validation failed');}setValidationFailures([]);window.sessionStorage.removeItem('admin-draft-validation-failures');setDirty(false);baseline.current=JSON.parse(JSON.stringify(value));setSaveState(`Saved ${new Intl.DateTimeFormat('en',{hour:'numeric',minute:'2-digit'}).format(new Date())}`);window.dispatchEvent(new CustomEvent('admin-draft-changed',{detail:{count:1}}));}catch(error){const message=error instanceof Error?error.message:'Unable to save draft';setSaveState(message);setSaveError(message)}},
   []);
   useEffect(()=>{if(!dirty||!draft)return;setSaveState('Unsaved changes');const timer=window.setTimeout(()=>save(draft),1500);return()=>window.clearTimeout(timer)},[draft,dirty,save]);
   useEffect(()=>{function beforeUnload(event:BeforeUnloadEvent){if(dirty){event.preventDefault();event.returnValue=''}}window.addEventListener('beforeunload',beforeUnload);return()=>window.removeEventListener('beforeunload',beforeUnload)},[dirty]);
@@ -304,6 +320,38 @@ export default function ContentManager({ section }: { section: Section }) {
     return () => { element.removeEventListener('scroll', updateOverflow); observer.disconnect(); };
   }, [activeSection]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedField = params.get('focus');
+    if (!requestedField) return;
+    const itemIndex = params.get('item');
+    const timer = window.setTimeout(() => {
+      const root = document.querySelector<HTMLElement>('.cms-editor');
+      if (!root) return;
+      const scope = itemIndex === null
+        ? root
+        : root.querySelector<HTMLElement>(`#item-${Number(itemIndex)}`) ?? root;
+      const normalize = (value: string) => value.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const expected = normalize(requestedField.split('.').at(-1) || requestedField);
+      const aliases: Record<string, string[]> = { text: ['paragraph'], credentialurl: ['url'], typebadge: ['typebadgetext'] };
+      const candidates = Array.from(scope.querySelectorAll<HTMLElement>('.cms-field'));
+      const field = candidates.find((candidate) => {
+        const label = candidate.querySelector<HTMLElement>('.cms-field-label')?.innerText || '';
+        const input = candidate.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select');
+        const key = normalize(label);
+        const name = normalize(input?.getAttribute('name') || '');
+        return key === expected || name === expected || (aliases[expected] || []).some((alias) => key === normalize(alias));
+      });
+      const control = field?.querySelector<HTMLElement>('input:not([type="checkbox"]),textarea,select,button')
+        || scope.querySelector<HTMLElement>('input:not([type="checkbox"]),textarea,select');
+      if (control instanceof HTMLElement) {
+        control.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        control.focus({ preventScroll: true });
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [activeSection, draft]);
+
   function sectionChanged(item: typeof sections[number]) {
     if (!draft || !baseline.current) return false;
     const key = item.toLowerCase();
@@ -329,12 +377,12 @@ export default function ContentManager({ section }: { section: Section }) {
     <header className="admin-header"><div><p className="admin-eyebrow">Draft editor</p><h1>Content manager</h1><p className={`cms-save-state${dirty?' is-dirty':''}`} role="status">{dirty?'Unsaved changes · ':''}{saveState}</p></div></header>
     <div className={`cms-tabs-shell${tabsOverflow.left?' fade-left':''}${tabsOverflow.right?' fade-right':''}`}>
       {tabsOverflow.left && <button type="button" className="cms-tab-scroll left" aria-label="Scroll tabs left" onClick={()=>tabsRef.current?.scrollBy({left:-220,behavior:'smooth'})}><ChevronLeft size={16}/></button>}
-      <div className="cms-tabs" role="tablist" aria-label="Portfolio sections" ref={tabsRef}>{sections.map((item,index)=>{const key=item.toLowerCase();const changed=sectionChanged(item);const error=errorSections.has(item);return <button key={item} role="tab" aria-selected={activeSection===key} tabIndex={activeSection===key?0:-1} className={activeSection===key?'is-active':''} onClick={()=>router.push(`/admin/content/${key}`)} onKeyDown={(event)=>tabKeyDown(event,index)}>{error?<span className="cms-status-dot is-error" title={`${item} has validation errors`}/>:changed&&<span className="cms-status-dot is-draft" title={`${item} has unpublished changes`}/>}<span>{item}</span></button>})}</div>
+      <div className="cms-tabs" role="tablist" aria-label="Portfolio sections" ref={tabsRef}>{sections.map((item,index)=>{const key=item.toLowerCase();const changed=sectionChanged(item);const error=errorSections.has(item)||validationFailures.some((failure)=>failure.tab===item);return <button key={item} role="tab" aria-selected={activeSection===key} tabIndex={activeSection===key?0:-1} className={activeSection===key?'is-active':''} onClick={()=>router.push(`/admin/content/${key}`)} onKeyDown={(event)=>tabKeyDown(event,index)}>{error?<span className="cms-status-dot is-error" title={`${item} has validation errors`}/>:changed&&<span className="cms-status-dot is-draft" title={`${item} has unpublished changes`}/>}<span>{item}</span></button>})}</div>
       {tabsOverflow.right && <button type="button" className="cms-tab-scroll right" aria-label="Scroll tabs right" onClick={()=>tabsRef.current?.scrollBy({left:220,behavior:'smooth'})}><ChevronRight size={16}/></button>}
     </div>
     <select className="cms-mobile-select" aria-label="Portfolio section" value={activeSection} onChange={(event)=>router.push(`/admin/content/${event.target.value}`)}>{sections.map(item=>{const key=item.toLowerCase();return <option value={key} key={key}>{item}</option>})}</select>
     <section className="cms-editor">
-      {validationFailures.length>0&&<section className="cms-validation-summary" aria-labelledby="validation-summary-title"><h2 id="validation-summary-title">Draft validation needs attention</h2><ul>{validationFailures.map((failure,index)=><li key={`${failure.tab}-${failure.field}-${index}`}><a href={`/admin/content/${failure.tab.toLowerCase()}${failure.itemIndex===undefined?'':`#item-${failure.itemIndex}`}`}><strong>{failure.tab}</strong> · {failure.item} · {failure.field}: {failure.message}</a></li>)}</ul></section>}
+      {validationFailures.length>0&&<section className="cms-validation-summary" aria-labelledby="validation-summary-title"><h2 id="validation-summary-title">Draft validation needs attention</h2><ul>{validationFailures.map((failure,index)=>{const query=new URLSearchParams({focus:failure.field});if(failure.itemIndex!==undefined)query.set('item',String(failure.itemIndex));const hash=failure.itemIndex===undefined?'':`#item-${failure.itemIndex}`;return <li key={`${failure.tab}-${failure.field}-${index}`}><a href={`/admin/content/${failure.tab.toLowerCase()}?${query.toString()}${hash}`}><strong>{failure.tab}</strong> &gt; {failure.item} &gt; {failure.field}: {failure.message}</a></li>})}</ul></section>}
       {section==='Profile'&&<div className="cms-profile-layout"><PersonalEditor draft={draft} update={update}/><aside className={`cms-live-preview${previewOpen?'':' is-collapsed'}`}><div className="cms-preview-header"><h2>Live preview</h2><button type="button" className="admin-button" onClick={()=>setPreviewOpen((value)=>!value)}>{previewOpen?'Collapse':'Expand'}</button></div>{previewOpen&&<div className="cms-preview-hero"><span className="cms-preview-eyebrow">{draft.content.personal.role}</span><h3>{draft.content.personal.name}</h3><p>{draft.content.personal.tagline}</p><p>{draft.content.personal.bio}</p><div className="cms-preview-links"><span>{draft.content.personal.github}</span><span>{draft.content.personal.linkedin}</span></div></div>}</aside></div>}
       {section==='Projects'&&<ProjectsEditor draft={draft} update={update}/>}
       {section==='Skills'&&<RepeatEditor section="Skills" draft={draft} update={update}/>}
