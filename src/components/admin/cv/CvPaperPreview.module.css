@@ -1,0 +1,452 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  position: relative;
+}
+
+.overflowBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(231, 169, 75, 0.15);
+  border: 1px solid #e7a94b;
+  color: #e7a94b;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 16px;
+  width: min(100%, 794px);
+  box-sizing: border-box;
+}
+
+.zoomStage {
+  transition: transform 0.12s ease-out;
+  padding-bottom: 40px;
+}
+
+.paper {
+  position: relative;
+  width: 794px; /* Standard A4 at 96 DPI */
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.pageBreakLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-top: 2px dashed #e98a95;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pageBreakLine span {
+  position: absolute;
+  right: 12px;
+  top: -10px;
+  background: #e98a95;
+  color: #111;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Header Styles */
+.header {
+  margin-bottom: 20px;
+}
+
+.name {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 4px;
+  color: var(--cv-text);
+  letter-spacing: -0.01em;
+}
+
+.targetTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cv-accent);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.contactRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 11px;
+  color: var(--cv-muted);
+}
+
+.contactItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.contactItem a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.contactItem a:hover {
+  text-decoration: underline;
+  color: var(--cv-accent);
+}
+
+.contactIcon {
+  color: var(--cv-accent);
+  flex-shrink: 0;
+}
+
+.contactSep {
+  margin-left: 6px;
+  opacity: 0.5;
+}
+
+.headerDivider {
+  margin: 12px 0 0;
+  border: 0;
+  border-top: 1px solid #e2e2e2;
+}
+
+/* Sections */
+.sectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: var(--cv-accent);
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 3px;
+}
+
+.summaryText {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--cv-text);
+}
+
+/* Experience & Projects Entries */
+.experienceList,
+.projectList,
+.educationList,
+.certList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.entryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.entryTitle {
+  font-weight: 700;
+  color: var(--cv-text);
+}
+
+.entryCompany {
+  font-weight: 600;
+  color: var(--cv-muted);
+}
+
+.entryParent, .entryNote {
+  color: var(--cv-muted);
+  font-size: 0.9em;
+}
+
+.entryMeta {
+  font-size: 11px;
+  color: var(--cv-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.entryLocation {
+  font-size: 11px;
+  color: var(--cv-muted);
+}
+
+.entryTech {
+  font-size: 11px;
+  color: var(--cv-accent);
+  font-family: var(--font-mono), monospace;
+}
+
+.entryDesc {
+  margin: 2px 0 0;
+  color: var(--cv-muted);
+  line-height: 1.4;
+}
+
+/* Bullets */
+.bulletList {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bulletList[data-bullet="square"] { list-style-type: square; }
+.bulletList[data-bullet="circle"] { list-style-type: circle; }
+.bulletList[data-bullet="dash"] { list-style-type: "- "; }
+.bulletList[data-bullet="disc"] { list-style-type: disc; }
+
+.bulletList li {
+  line-height: 1.45;
+  color: var(--cv-text);
+}
+
+/* Skills */
+.skillsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skillGroup {
+  line-height: 1.45;
+}
+
+.skillCategoryName {
+  font-weight: 700;
+  color: var(--cv-text);
+}
+
+.skillList {
+  color: var(--cv-muted);
+}
+
+/* Certifications */
+.certItem {
+  line-height: 1.4;
+}
+
+.certName {
+  font-weight: 600;
+  color: var(--cv-text);
+}
+
+.certIssuer {
+  color: var(--cv-muted);
+}
+
+.certDate {
+  font-size: 11px;
+  color: var(--cv-muted);
+}
+
+/* Template Specific Overrides */
+
+/* 1. ATS Classic: Clean, high readability, standard horizontal rules */
+.tpl_ats_classic .sectionTitle {
+  border-bottom: 1.5px solid #111;
+  color: #111;
+}
+.tpl_ats_classic .name {
+  color: #111;
+}
+.tpl_ats_classic .targetTitle {
+  color: #333;
+}
+
+/* 2. Modern Professional: Left accent mark on titles, modern clean spacing */
+.tpl_modern_professional .sectionTitle {
+  border-bottom: 0;
+  border-left: 3px solid var(--cv-accent);
+  padding-left: 8px;
+  padding-bottom: 0;
+}
+.tpl_modern_professional .header {
+  border-bottom: 2px solid var(--cv-accent);
+  padding-bottom: 12px;
+}
+
+/* 3. Software Engineer: Tech badges, monospace accents */
+.tpl_software_engineer .entryTech {
+  display: inline-block;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+  margin-left: 6px;
+}
+.tpl_software_engineer .sectionTitle {
+  border-bottom: 2px solid var(--cv-accent);
+}
+
+/* 4. Full Stack Developer: Balanced, clear categorisation */
+.tpl_full_stack_developer .header {
+  background: linear-gradient(to right, rgba(181, 162, 216, 0.08), transparent);
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+/* 5. Minimal Elegant: Lightweight fonts, subtle borders */
+.tpl_minimal_elegant .name {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+.tpl_minimal_elegant .sectionTitle {
+  border-bottom: 1px solid #eaeaea;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+/* 6. Compact One-Page: Dense information hierarchy */
+.tpl_compact_one_page {
+  padding: 28px 32px !important;
+  font-size: 11.5px !important;
+  line-height: 1.3 !important;
+}
+.tpl_compact_one_page .sectionList {
+  gap: 10px;
+}
+.tpl_compact_one_page .experienceList,
+.tpl_compact_one_page .projectList {
+  gap: 8px;
+}
+
+/* 7. Executive Professional: Formal centered name, double divider */
+.tpl_executive_professional .header {
+  text-align: center;
+}
+.tpl_executive_professional .contactRow {
+  justify-content: center;
+}
+.tpl_executive_professional .headerDivider {
+  border-top: 3px double #333;
+}
+.tpl_executive_professional .sectionTitle {
+  text-align: center;
+  border-bottom: 1px solid #666;
+}
+
+/* 8. Modern Two-Column Layout */
+.twoColLayout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 28px;
+  min-height: 100%;
+}
+
+.twoColSidebar {
+  border-right: 1px solid #eaeaea;
+  padding-right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.twoColBrand .name {
+  font-size: 20px;
+}
+
+.twoColBrand .targetTitle {
+  font-size: 11px;
+}
+
+.sidebarSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebarTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cv-accent);
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 2px;
+  margin: 0;
+}
+
+.sidebarContactList, .sidebarSkillGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sidebarContactLabel {
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--cv-muted);
+}
+
+.sidebarSkillGroup strong {
+  display: block;
+  font-size: 11px;
+}
+
+.sidebarSkillGroup p {
+  margin: 2px 0 0;
+  color: var(--cv-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.sidebarEduItem strong, .sidebarCertItem strong {
+  display: block;
+  font-size: 11px;
+}
+
+.sidebarEduItem p, .sidebarCertItem p {
+  margin: 1px 0;
+  color: var(--cv-muted);
+  font-size: 10.5px;
+}
+
+.sidebarEduItem small {
+  color: var(--cv-muted);
+  font-size: 10px;
+}
+
+.twoColMain {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
