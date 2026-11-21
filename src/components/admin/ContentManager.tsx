@@ -9,7 +9,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, GripVertical, Plus
 import { personalSchema, projectSchema, type PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 import { AboutEditor, HeroEditor, RepeatEditor } from '@/components/admin/SectionEditors';
 import ImageUpload from '@/components/admin/ImageUpload';
-import { Field, Input, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
+import { displayText, Field, Input, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
 import DraftSaveBar from '@/components/admin/DraftSaveBar';
 import { readJsonResponse } from '@/lib/http/json';
 import RepeaterField from '@/components/admin/RepeaterField';
@@ -205,24 +205,24 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
           itemLabel="Link"
           emptyTitle="No project links"
           emptyDescription="Add labels and URLs for all live sites or external project links."
-          getSummary={(row) => String(row.label || row.url || '')}
+          getSummary={(row) => displayText(row.label) || displayText(row.url)}
           createItem={(label) => ({ id: `link-${Date.now()}`, label: label || '', url: '', icon: 'ArrowUpRight' })}
           primaryField={{ key: 'label', label: 'link label' }}
           requiredFields={[{ key: 'url', label: 'link URL', type: 'url' }]}
           onChange={(rows) => {
             const links = rows.map(({ label, url, icon }) => ({
-              label: String(label || ''),
-              url: String(url || ''),
-              icon: String(icon || 'ArrowUpRight'),
+              label: displayText(label),
+              url: displayText(url),
+              icon: displayText(icon, 'ArrowUpRight'),
             }));
             form.setValue('links', links as ProjectInput['links'], { shouldDirty: true, shouldValidate: true });
             syncProject({ ...form.getValues(), links: links as ProjectInput['links'] });
           }}
           renderItem={(row, _index, patch) => (
             <div className="cms-form-grid">
-              <Field label="Label" required><Input value={String(row.label || '')} onChange={(event) => patch({ label: event.target.value })} /></Field>
-              <Field label="URL" required><Input type="url" value={String(row.url || '')} onChange={(event) => patch({ url: event.target.value })} /></Field>
-              <Field label="Icon"><Input value={String(row.icon || 'ArrowUpRight')} onChange={(event) => patch({ icon: event.target.value })} /></Field>
+              <Field label="Label" required><Input value={displayText(row.label)} onChange={(event) => patch({ label: event.target.value })} /></Field>
+              <Field label="URL" required><Input type="url" value={displayText(row.url)} onChange={(event) => patch({ url: event.target.value })} /></Field>
+              <Field label="Icon"><Input value={displayText(row.icon, 'ArrowUpRight')} onChange={(event) => patch({ icon: event.target.value })} /></Field>
             </div>
           )}
         />
@@ -231,18 +231,18 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
         title="Workflow steps"
         items={(form.watch('workflow') ?? []).map((step,index)=>typeof step === 'string'
           ? {id:`step-${index}`,label:step,description:''}
-          : {id:String(step.id||`step-${index}`),...step})}
+          : {id:displayText(step.id,`step-${index}`),...step})}
         itemLabel="Step"
         emptyTitle="No workflow steps"
         emptyDescription="Add ordered steps for the project process or case-study flow."
-        getSummary={(row)=>String(row.label||'')}
+        getSummary={(row)=>displayText(row.label)}
         createItem={(label)=>({id:`step-${Date.now()}`,label:label||'',description:''})}
         primaryField={{key:'label',label:'step label'}}
-        onChange={(rows)=>{const workflow=rows.map(({id,label,description})=>({id:String(id),label:String(label||''),description:String(description||'')}));form.setValue('workflow',workflow,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),workflow:workflow as ProjectInput['workflow']})}}
-        renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Step label" required><Input value={String(row.label||'')} onChange={(event)=>patch({label:event.target.value})}/></Field><Field label="Description"><Textarea value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></Field></div>}
+        onChange={(rows)=>{const workflow=rows.map(({id,label,description})=>({id:displayText(id),label:displayText(label),description:displayText(description)}));form.setValue('workflow',workflow,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),workflow:workflow as ProjectInput['workflow']})}}
+        renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Step label" required><Input value={displayText(row.label)} onChange={(event)=>patch({label:event.target.value})}/></Field><Field label="Description"><Textarea value={displayText(row.description)} onChange={(event)=>patch({description:event.target.value})}/></Field></div>}
       /></details>
       <details className="cms-form-section" open><summary>Stack</summary><TagInput label="Stack" value={form.watch('stack') ?? []} onChange={(stack)=>{form.setValue('stack',stack,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),stack})}} suggestions={skillSuggestions} placeholder="Type a technology and press Enter" /></details>
-      <details className="cms-form-section" open><summary>Highlights</summary><RepeaterField title="Project highlights" items={highlightRows} itemLabel="Highlight" emptyTitle="No highlights yet" emptyDescription="Highlights summarize the project's key outcomes." getSummary={(row)=>String(row.text||'')} createItem={(text)=>({id:`highlight-${Date.now()}`,text:text||'',icon:'check'})} primaryField={{key:'text',label:'highlight text'}} onChange={(rows)=>{const highlights=editorRowsToHighlights(rows.map((row)=>({id:String(row.id),text:String(row.text??''),icon:String(row.icon||'check')})));form.setValue('highlights',highlights as unknown as ProjectInput['highlights'],{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),highlights:highlights as unknown as ProjectInput['highlights']})}} renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Highlight text" required><Textarea value={String(row.text??'')} onChange={(event)=>patch({text:event.target.value})}/></Field><Field label="Icon"><Input value={String(row.icon||'check')} onChange={(event)=>patch({icon:event.target.value})}/></Field></div>}/></details>
+      <details className="cms-form-section" open><summary>Highlights</summary><RepeaterField title="Project highlights" items={highlightRows} itemLabel="Highlight" emptyTitle="No highlights yet" emptyDescription="Highlights summarize the project's key outcomes." getSummary={(row)=>displayText(row.text)} createItem={(text)=>({id:`highlight-${Date.now()}`,text:text||'',icon:'check'})} primaryField={{key:'text',label:'highlight text'}} onChange={(rows)=>{const highlights=editorRowsToHighlights(rows.map((row)=>({id:displayText(row.id),text:displayText(row.text),icon:displayText(row.icon,'check')})));form.setValue('highlights',highlights as unknown as ProjectInput['highlights'],{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),highlights:highlights as unknown as ProjectInput['highlights']})}} renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Highlight text" required><Textarea value={displayText(row.text)} onChange={(event)=>patch({text:event.target.value})}/></Field><Field label="Icon"><Input value={displayText(row.icon,'check')} onChange={(event)=>patch({icon:event.target.value})}/></Field></div>}/></details>
       <details className="cms-form-section"><summary>Media</summary>
         <ImageUpload label="Project thumbnail" value={form.watch('thumbnail')} alt={form.watch('thumbnailAlt')} fallback="" neutralPlaceholder onChange={(path)=>{form.setValue('thumbnail',path,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),thumbnail:path})}} onAltChange={(alt)=>{form.setValue('thumbnailAlt',alt,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),thumbnailAlt:alt})}}/>
         <ImageUpload label="Case-study cover" value={form.watch('coverImage')} alt={form.watch('coverImageAlt')} fallback="" neutralPlaceholder onChange={(path)=>{form.setValue('coverImage',path,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),coverImage:path})}} onAltChange={(alt)=>{form.setValue('coverImageAlt',alt,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),coverImageAlt:alt})}}/>
@@ -267,7 +267,47 @@ export default function ContentManager({ section }: { section: Section }) {
   const latest=useRef<PortfolioRelease|null>(null);
   latest.current=draft;
 
-  const load=useCallback(async()=>{try{const draftResponse=await fetch('/api/admin/draft');if(!draftResponse.ok)throw new Error('Unable to load draft');const loaded=await readJsonResponse<PortfolioRelease>(draftResponse);if(!loaded)throw new Error('Draft response was empty or invalid.');const normalized=JSON.parse(JSON.stringify(loaded)) as PortfolioRelease;const content=normalized.content as unknown as Record<string,unknown>;let seeded=false;const contact=(content.contact&&typeof content.contact==='object'?content.contact:{}) as Record<string,unknown>;const contactDefaults=portfolioData.contact as Record<string,unknown>;if(!String(contact.title||'').trim()){contact.title=contactDefaults.title;seeded=true}if(!String(contact.description||'').trim()){contact.description=contactDefaults.description;seeded=true}if(!String(contact.buttonLabel||'').trim()){contact.buttonLabel=contactDefaults.buttonLabel;seeded=true}if(!Array.isArray(contact.links)||contact.links.length===0){contact.links=contactDefaults.links;seeded=true}else{const links=contact.links as Array<Record<string,unknown>>;const clean=links.filter((link)=>String(link.label||'').trim()||String(link.url||'').trim());if(clean.length!==links.length){contact.links=clean;seeded=true}if(clean.length===0){contact.links=contactDefaults.links;seeded=true}}content.contact=contact;const terminal=(content.terminal&&typeof content.terminal==='object'?content.terminal:{}) as Record<string,unknown>;const terminalDefaults=portfolioData.terminal as Record<string,unknown>;if(!String(terminal.welcome||'').trim()){terminal.welcome=terminalDefaults.welcome;seeded=true}if(!String(terminal.prompt||'').trim()){terminal.prompt=terminalDefaults.prompt;seeded=true}if(!Array.isArray(terminal.help)||terminal.help.length===0){terminal.help=terminalDefaults.help;seeded=true}if(!Array.isArray(terminal.commands)||terminal.commands.length===0){terminal.commands=terminalDefaults.commands;seeded=true}else{const commands=terminal.commands as Array<Record<string,unknown>>;const clean=commands.filter((command)=>String(command.command||'').trim());if(clean.length!==commands.length){terminal.commands=clean;seeded=true}if(clean.length===0){terminal.commands=terminalDefaults.commands;seeded=true}}content.terminal=terminal;const skills=(content.skills&&typeof content.skills==='object'?content.skills:{}) as Record<string,unknown>;for(const [category,rows] of Object.entries(skills)){if(!Array.isArray(rows))continue;const clean=rows.filter((row)=>row&&typeof row==='object'&&String((row as {name?:unknown}).name||'').trim());if(clean.length!==rows.length){skills[category]=clean;seeded=true}}content.skills=skills;setDraft(normalized);baseline.current=JSON.parse(JSON.stringify(normalized));if(seeded){setDirty(true);setSaveState('Empty items removed; defaults repaired');}else setSaveState('No unsaved changes');}catch(error){setSaveState(error instanceof Error?error.message:'Unable to load draft')}},[]);
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/draft');
+      if (!response.ok) throw new Error('Unable to load draft');
+      const loaded = await readJsonResponse<PortfolioRelease>(response);
+      if (!loaded) throw new Error('Draft response was empty or invalid.');
+      const normalized = JSON.parse(JSON.stringify(loaded)) as PortfolioRelease;
+      const content = normalized.content as unknown as Record<string, unknown>;
+      let seeded = false;
+      const contact = (content.contact && typeof content.contact === 'object' ? content.contact : {}) as Record<string, unknown>;
+      const contactDefaults = portfolioData.contact as Record<string, unknown>;
+      for (const key of ['title', 'description', 'buttonLabel']) {
+        if (!displayText(contact[key]).trim()) { contact[key] = contactDefaults[key]; seeded = true; }
+      }
+      const links = Array.isArray(contact.links) ? contact.links.filter((link) => link && typeof link === 'object' && (displayText((link as Record<string, unknown>).label).trim() || displayText((link as Record<string, unknown>).url).trim())) : [];
+      if (links.length === 0) { contact.links = contactDefaults.links; seeded = true; } else if (links.length !== (contact.links as unknown[]).length) { contact.links = links; seeded = true; }
+      content.contact = contact;
+      const terminal = (content.terminal && typeof content.terminal === 'object' ? content.terminal : {}) as Record<string, unknown>;
+      const terminalDefaults = portfolioData.terminal as Record<string, unknown>;
+      for (const key of ['welcome', 'prompt']) {
+        if (!displayText(terminal[key]).trim()) { terminal[key] = terminalDefaults[key]; seeded = true; }
+      }
+      if (!Array.isArray(terminal.help) || terminal.help.length === 0) { terminal.help = terminalDefaults.help; seeded = true; }
+      const commands = Array.isArray(terminal.commands) ? terminal.commands.filter((command) => command && typeof command === 'object' && displayText((command as Record<string, unknown>).command).trim()) : [];
+      if (commands.length === 0) { terminal.commands = terminalDefaults.commands; seeded = true; } else if (commands.length !== (terminal.commands as unknown[]).length) { terminal.commands = commands; seeded = true; }
+      content.terminal = terminal;
+      const skills = (content.skills && typeof content.skills === 'object' ? content.skills : {}) as Record<string, unknown>;
+      for (const [category, rows] of Object.entries(skills)) {
+        if (!Array.isArray(rows)) continue;
+        const clean = rows.filter((row) => row && typeof row === 'object' && displayText((row as Record<string, unknown>).name).trim());
+        if (clean.length !== rows.length) { skills[category] = clean; seeded = true; }
+      }
+      content.skills = skills;
+      setDraft(normalized);
+      baseline.current = JSON.parse(JSON.stringify(normalized));
+      if (seeded) { setDirty(true); setSaveState('Empty items removed; defaults repaired'); }
+      else setSaveState('No unsaved changes');
+    } catch (error) {
+      setSaveState(error instanceof Error ? error.message : 'Unable to load draft');
+    }
+  }, []);
   useEffect(()=>{load()},[load]);
   useEffect(()=>{
     try {

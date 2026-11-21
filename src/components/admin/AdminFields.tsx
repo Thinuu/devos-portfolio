@@ -2,6 +2,16 @@
 
 import { forwardRef, useId, useLayoutEffect, useRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
+export function displayText(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return fallback;
+}
+
+export function displayTextList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
 type FieldProps = {
   label: string;
   required?: boolean;
@@ -78,28 +88,30 @@ export function TagInput({ label, value, onChange, helperText = 'Press Enter to 
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
+  const tags = displayTextList(value);
+  const suggestionList = displayTextList(suggestions);
   function move(from: number, to: number) {
-    if (from === to || from < 0 || to < 0 || from >= value.length || to >= value.length) return;
-    const next = [...value];
+    if (from === to || from < 0 || to < 0 || from >= tags.length || to >= tags.length) return;
+    const next = [...tags];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
     onChange(next);
   }
   function add(raw: string) {
     const tag = raw.trim();
-    if (!tag || value.includes(tag)) return;
-    onChange([...value, tag]);
+    if (!tag || tags.includes(tag)) return;
+    onChange([...tags, tag]);
     if (inputRef.current) inputRef.current.value = '';
   }
   return <div className="cms-field cms-tag-field">
     <span className="cms-field-label">{label}</span>
-    <div className="cms-tags">{value.map((tag, index) => <span className="cms-tag" key={`${tag}-${index}`} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', String(index))} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); move(Number(event.dataTransfer.getData('text/plain')), index); }}>
-      {tag}<button type="button" aria-label={`Remove ${tag}`} onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}>×</button>
+    <div className="cms-tags">{tags.map((tag, index) => <span className="cms-tag" key={`${tag}-${index}`} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', String(index))} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); move(Number(event.dataTransfer.getData('text/plain')), index); }}>
+      {tag}<button type="button" aria-label={`Remove ${tag}`} onClick={() => onChange(tags.filter((_, itemIndex) => itemIndex !== index))}>×</button>
     </span>)}</div>
-    <Input ref={inputRef} list={suggestions.length ? listId : undefined} placeholder={placeholder ?? `Add ${label.toLowerCase()}`} onKeyDown={(event) => {
+    <Input ref={inputRef} list={suggestionList.length ? listId : undefined} placeholder={placeholder ?? `Add ${label.toLowerCase()}`} onKeyDown={(event) => {
       if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); add(event.currentTarget.value); }
     }} />
-    {suggestions.length > 0 && <datalist id={listId}>{suggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>}
+    {suggestionList.length > 0 && <datalist id={listId}>{suggestionList.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist>}
     {helperText && <small className="cms-field-helper">{helperText}</small>}
   </div>;
 }
