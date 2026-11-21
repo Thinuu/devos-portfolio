@@ -285,6 +285,32 @@ export default function ContentManager({ section }: { section: Section }) {
       if (hero.profileImage && !displayText(hero.profileImageAlt).trim()) { hero.profileImageAlt = heroDefaults.profileImageAlt || normalized.content.personal.name; seeded = true; }
       if (!Array.isArray(hero.socialLinks) || hero.socialLinks.length === 0) { hero.socialLinks = heroDefaults.socialLinks; seeded = true; }
       content.hero = hero;
+      const about = (content.about && typeof content.about === 'object' ? content.about : {}) as Record<string, unknown>;
+      const aboutDefaults = portfolioData.about as unknown as Record<string, unknown>;
+      for (const key of ['title', 'intro', 'portraitImage', 'portraitAlt', 'resumeLabel', 'resumeLink']) {
+        if (!displayText(about[key]).trim()) { about[key] = aboutDefaults[key]; seeded = true; }
+      }
+      const paragraphs = Array.isArray(about.paragraphs) ? about.paragraphs.filter((paragraph) => typeof paragraph === 'string' && paragraph.trim()) : [];
+      if (!paragraphs.length) { about.paragraphs = aboutDefaults.paragraphs; seeded = true; } else if (paragraphs.length !== (about.paragraphs as unknown[]).length) { about.paragraphs = paragraphs; seeded = true; }
+      const highlights = Array.isArray(about.highlights) ? about.highlights.filter((highlight) => highlight && typeof highlight === 'object') as Array<Record<string, unknown>> : [];
+      if (!highlights.length) { about.highlights = aboutDefaults.highlights; seeded = true; }
+      else {
+        const defaultHighlights = aboutDefaults.highlights as Array<Record<string, unknown>>;
+        about.highlights = highlights.map((highlight, index) => {
+          const fallback = defaultHighlights[index] ?? defaultHighlights[0];
+          const text = displayText(highlight.text, displayText(highlight.description, displayText(fallback.text)));
+          const next = {
+            ...highlight,
+            label: displayText(highlight.label, displayText(fallback.label)),
+            title: displayText(highlight.title, displayText(fallback.title)),
+            text,
+          };
+          if (next.label !== highlight.label || next.title !== highlight.title || next.text !== highlight.text || 'description' in next) seeded = true;
+          delete (next as Record<string, unknown>).description;
+          return next;
+        });
+      }
+      content.about = about;
       const contact = (content.contact && typeof content.contact === 'object' ? content.contact : {}) as Record<string, unknown>;
       const contactDefaults = portfolioData.contact as Record<string, unknown>;
       for (const key of ['title', 'description', 'buttonLabel']) {

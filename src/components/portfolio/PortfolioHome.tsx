@@ -6,15 +6,14 @@ import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-
 import TULogo from '@/components/brand/TULogo';
 import SiteHeader from '@/components/portfolio/SiteHeader';
 import HeroSection from '@/components/portfolio/HeroSection';
+import AboutSection from '@/components/portfolio/AboutSection';
 import { getProjectLinks } from '@/lib/projects/links';
 import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
-  BriefcaseBusiness,
   BarChart3,
   Brush,
-  Code2,
   Cpu,
   Database,
   Globe2,
@@ -97,9 +96,11 @@ export default function PortfolioHome({
     title?: string;
     intro?: string;
     paragraphs?: string[];
-    highlights?: Array<{ title: string; description: string }>;
+    highlights?: Array<{ label?: string; title: string; text?: string; description?: string; hidden?: boolean }>;
     portraitImage?: string;
     portraitAlt?: string;
+    resumeLabel?: string;
+    resumeLink?: string;
   } }).about;
   const contact = (data as typeof data & { contact?: { title?: string; description?: string; buttonLabel?: string; links?: Array<{ label: string; url: string; icon?: string }> } }).contact;
   const filteredProjects = visibleProjects.filter(
@@ -147,37 +148,7 @@ export default function PortfolioHome({
       <main id="main">
         <HeroSection hero={hero} personal={personal} />
 
-        <section className="about section-wrap section-space" id="about" aria-labelledby="about-title">
-          <SectionHeading number="01" eyebrow="BEHIND THE CODE" title={about?.title || "A developer with a passion for building meaningful experiences."} id="about-title" />
-          <div className="about-grid">
-            <motion.div className="about-intro motion-content" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={reveals}>
-              <div className="about-identity">
-                <div className="about-portrait">
-                  <Image src={about?.portraitImage || "/images/thinu-profile.png"} alt={about?.portraitAlt || ""} width={140} height={170} sizes="70px" />
-                </div>
-                <div>
-                  <span className="card-index">THINU UPADYA / SOFTWARE ENGINEER</span>
-                  <p className="large-copy">{about?.intro || 'I work across the stack to turn complex ideas into clear, useful digital products.'}</p>
-                </div>
-              </div>
-              <div className="body-copy">{(about?.paragraphs?.length ? about.paragraphs : [personal.bio]).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
-              <a className="text-link" href="/THINU_UPADYA_CV_Updated.pdf" download>Download my resume <ArrowUpRight size={16} /></a>
-            </motion.div>
-            <div className="about-aside">
-              {(about?.highlights?.length ? about.highlights : [
-                { title: 'Design with purpose.', description: 'Interfaces should make even complex workflows feel considered and easy to understand.' },
-                { title: 'Engineering with care.', description: 'I value dependable solutions, maintainable code, and the details that make products work well.' },
-              ]).map((highlight, index) => (
-                <motion.article className={`principle-card motion-content${index === 1 ? ' principle-highlight' : ''}`} key={`${highlight.title}-${index}`} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ delay: index * 0.1 }} variants={reveals}>
-                  <span className="card-index">{String.fromCharCode(65 + index)} / HIGHLIGHT</span>
-                  {index % 2 === 0 ? <Code2 size={20} aria-hidden="true" /> : <BriefcaseBusiness size={20} aria-hidden="true" />}
-                  <h3>{highlight.title}</h3>
-                  <p>{highlight.description}</p>
-                </motion.article>
-              ))}
-            </div>
-          </div>
-        </section>
+        <AboutSection about={about} personal={personal} />
 
         <section className="experience section-wrap section-space" id="experience" aria-labelledby="experience-title">
           <SectionHeading number="02" eyebrow="THE JOURNEY" title="From learning to building real-world solutions." id="experience-title" />

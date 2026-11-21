@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import RepeaterField, { type RepeaterItem } from '@/components/admin/RepeaterField';
 import ImageUpload from '@/components/admin/ImageUpload';
+import AboutSection from '@/components/portfolio/AboutSection';
 import { displayText, displayTextList, Field, Input, Select, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
 import HeroSection from '@/components/portfolio/HeroSection';
 import type { PortfolioRelease } from '@/lib/schemas/portfolio.schema';
@@ -40,10 +41,14 @@ type HeroValue = z.infer<typeof heroSchema>;
 const aboutSchema = z.object({
   title: z.string().min(1).max(200),
   intro: z.string().max(1000).optional(),
-  paragraphs: z.array(z.string().min(1).max(2000)).min(1).max(20),
-  highlights: z.array(z.object({ title: z.string().min(1).max(160), description: z.string().min(1).max(1000), hidden: z.boolean().optional() })).max(20).optional(),
+  paragraphs: z.array(z.string().min(1).max(2000)).max(20),
+  highlights: z.array(z.object({ label: z.string().max(120).optional(), title: z.string().min(1).max(160), text: z.string().min(1).max(1000).optional(), description: z.string().max(1000).optional(), hidden: z.boolean().optional() })).max(20).optional(),
   portraitImage: z.string().max(500).optional(),
   portraitAlt: z.string().max(160).optional(),
+  resumeLabel: z.string().max(80).optional(),
+  resumeLink: z.string().max(500).optional(),
+}).superRefine((about, ctx) => {
+  if (about.portraitImage && !about.portraitAlt?.trim()) ctx.addIssue({ code: 'custom', path: ['portraitAlt'], message: 'Alt text is required when an About portrait is set.' });
 });
 
 function AdvancedJson({ value, onApply, title, validate }: { value: unknown; onApply: (value: unknown) => void; title: string; validate?: (value: unknown) => { success: boolean; error?: z.ZodError } }) {
@@ -79,18 +84,22 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
     title?: string;
     intro?: string;
     paragraphs?: string[];
-    highlights?: Array<{ title: string; description: string; hidden?: boolean }>;
+    highlights?: Array<{ label?: string; title: string; text?: string; description?: string; hidden?: boolean }>;
     portraitImage?: string;
     portraitAlt?: string;
+    resumeLabel?: string;
+    resumeLink?: string;
   } | undefined) ?? { title: '' };
   const paragraphs = Array.isArray(value.paragraphs) ? value.paragraphs.filter((paragraph): paragraph is string => typeof paragraph === 'string') : [];
+  const aboutParseResult = aboutSchema.safeParse(value);
+  const aboutAltError = aboutParseResult.success ? undefined : aboutParseResult.error.issues.find((issue) => issue.path[0] === 'portraitAlt')?.message;
 
   function patchAbout(patch: Record<string, unknown>) {
     update({ ...draft, content: { ...draft.content, about: { ...value, ...patch } } as PortfolioRelease['content'] });
   }
 
   return (
-    <div className="cms-profile-layout">
+    <div className="cms-profile-layout cms-about-editor-layout">
       <div className="cms-form">
         {!record.about && <p className="cms-warning">Existing About data was missing; safe defaults are shown.</p>}
         <Field label="Heading" required><Input value={value.title || ''} maxLength={200} onChange={(event) => patchAbout({ title: event.target.value })} /></Field>
@@ -108,28 +117,39 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
           renderItem={(row, _index, patch) => <Field label="Paragraph" helperText={`${displayText(row.text).length}/2000 characters`}><Textarea maxLength={2000} value={displayText(row.text)} onChange={(event) => patch({ text: event.target.value })} /></Field>}
         />
         <RepeaterField
-          title="Highlights"
+          title="Approach and practice cards"
           items={(value.highlights ?? []).map((row, index) => ({ id: `highlight-${index}`, ...row }))}
           onChange={(rows) => patchAbout({ highlights: rows.map(({ id: _id, ...row }) => row) })}
-          createItem={(title) => ({ id: `highlight-${Date.now()}`, title: title || '', description: '' })}
-          primaryField={{ key: 'title', label: 'highlight title' }}
-          itemLabel="Highlight"
-          emptyTitle="No highlights yet"
-          emptyDescription="Highlights appear as short bullet points beside your About text."
-          getSummary={(row) => displayText(row.title) || displayText(row.description)}
-          renderItem={(row, _index, patch) => <div className="cms-form-grid"><Field label="Title" required><Input value={displayText(row.title)} onChange={(event) => patch({ title: event.target.value })} /></Field><Field label="Description"><Textarea value={displayText(row.description)} onChange={(event) => patch({ description: event.target.value })} /></Field></div>}
+          createItem={(title) => ({ id: `about-card-${Date.now()}`, label: '', title: title || '', text: '' })}
+          primaryField={{ key: 'title', label: 'card title' }}
+          requiredFields={[{ key: 'title', label: 'card title' }, { key: 'text', label: 'card text' }]}
+          itemLabel="About card"
+          emptyTitle="No custom cards"
+          emptyDescription="The public About section will show its two default cards when this list is empty."
+          getSummary={(row) => displayText(row.title) || displayText(row.text, displayText(row.description))}
+          renderItem={(row, _index, patch) => <div className="cms-form-grid"><Field label="Label"><Input value={displayText(row.label)} onChange={(event) => patch({ label: event.target.value })} /></Field><Field label="Title" required><Input value={displayText(row.title)} onChange={(event) => patch({ title: event.target.value })} /></Field><Field label="Text" required><Textarea value={displayText(row.text, displayText(row.description))} onChange={(event) => patch({ text: event.target.value, description: undefined })} /></Field></div>}
         />
+        <p className="cms-status-chip is-ready">Shown on site: About content and its two default cards render in the public homepage section.</p>
+        <div className="cms-form-grid">
+          <Field label="Resume link label"><Input value={value.resumeLabel || ''} maxLength={80} onChange={(event) => patchAbout({ resumeLabel: event.target.value })} /></Field>
+          <Field label="Resume link"><Input value={value.resumeLink || ''} maxLength={500} onChange={(event) => patchAbout({ resumeLink: event.target.value })} /></Field>
+        </div>
         <ImageUpload
           label="Portrait"
           value={value.portraitImage}
           alt={value.portraitAlt}
+          altRequired
+          altError={aboutAltError}
           fallback="/images/thinu-profile.png"
           onChange={(path) => patchAbout({ portraitImage: path })}
           onAltChange={(alt) => patchAbout({ portraitAlt: alt })}
         />
         <AdvancedJson title="About" value={value} validate={(next) => aboutSchema.safeParse(next)} onApply={(next) => update({ ...draft, content: { ...draft.content, about: next as never } })} />
       </div>
-      <Preview title="About preview"><h3>{value.title}</h3>{value.intro&&<p>{value.intro}</p>}{paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</Preview>
+      <aside className="cms-live-preview cms-about-real-preview">
+        <div className="cms-preview-header"><h2>About preview</h2></div>
+        <div className="cms-about-real-frame"><AboutSection about={value as NonNullable<Parameters<typeof AboutSection>[0]['about']>} personal={draft.content.personal} animated={false} /></div>
+      </aside>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { deriveFlatSkills } from '@/lib/projects/toolkit';
 
+const portfolioBiography = "I'm an Associate Software Engineer at Cybernetics IT Consultancy, where I work across the full stack on enterprise applications and WordPress systems. I progressed here after a year as a Software Engineer Intern. My work includes a MERN-stack event management platform, API development, and IoT projects. I hold a BTEC HND in Software Engineering and I'm currently pursuing my BSc at Canterbury Christ Church University.";
+
 export const portfolioData = {
   navigation: {
     items: [
@@ -55,12 +57,14 @@ export const portfolioData = {
   about: {
     title: 'A developer with a passion for building meaningful experiences.',
     intro: 'I work across the stack to turn complex ideas into clear, useful digital products.',
-    paragraphs: ['I combine full-stack engineering, enterprise systems, and thoughtful product design to deliver reliable digital experiences.'],
+    paragraphs: [portfolioBiography],
     portraitImage: '/images/thinu-profile.png',
-    portraitAlt: 'Thinu Upadya',
+    portraitAlt: 'Thinu Upadya portrait',
+    resumeLabel: 'Download my resume',
+    resumeLink: '/THINU_UPADYA_CV_Updated.pdf',
     highlights: [
-      { title: 'Design with purpose.', description: 'Interfaces should make even complex workflows feel considered and easy to understand.' },
-      { title: 'Engineering with care.', description: 'I value dependable solutions, maintainable code, and the details that make products work well.' },
+      { label: 'A / APPROACH', title: 'Design with purpose.', text: 'Interfaces should make even complex workflows feel considered and easy to understand.' },
+      { label: 'B / PRACTICE', title: 'Engineering with care.', text: 'I value dependable solutions, maintainable code, and the details that make products work well.' },
     ],
   },
   tools: [
@@ -105,7 +109,7 @@ export const portfolioData = {
     name: 'Thinu Upadya',
     role: 'Software Engineer',
     tagline: 'Building useful software,\none thoughtful implementation at a time.',
-    bio: "I'm an Associate Software Engineer at Cybernetics IT Consultancy, where I work across the full stack on enterprise applications and WordPress systems. I progressed here after a year as a Software Engineer Intern. My work includes a MERN-stack event management platform, API development, and IoT projects. I hold a BTEC HND in Software Engineering and I'm currently pursuing my BSc at Canterbury Christ Church University.",
+    bio: portfolioBiography,
     location: 'Sri Lanka',
     timezone: 'GMT+5:30',
     email: 'thinuupadya13@gmail.com',

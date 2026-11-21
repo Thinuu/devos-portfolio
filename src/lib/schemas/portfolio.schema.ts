@@ -151,12 +151,20 @@ export const portfolioSchema = z.object({
     intro: z.string().max(1000).optional(),
     paragraphs: z.array(z.string().max(2000)).max(20).optional(),
     highlights: z.array(z.object({
+      label: z.string().max(120).optional(),
       title: z.string().max(160),
-      description: z.string().max(1000),
+      text: z.string().max(1000).optional(),
+      description: z.string().max(1000).optional(),
       hidden: z.boolean().optional(),
     })).max(20).optional(),
     portraitImage: z.string().max(500).optional(),
     portraitAlt: z.string().max(160).optional(),
+    resumeLabel: z.string().max(80).optional(),
+    resumeLink: z.string().max(500).optional(),
+  }).superRefine((about, ctx) => {
+    if (about.portraitImage && !about.portraitAlt?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['portraitAlt'], message: 'Alt text is required when an About portrait is set.' });
+    }
   }).optional(),
   tools: z.array(z.object({
     id: z.string().min(1),
