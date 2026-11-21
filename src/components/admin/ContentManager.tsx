@@ -5,12 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, GripVertical, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { personalSchema, projectSchema, type PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 import { AboutEditor, HeroEditor, RepeatEditor } from '@/components/admin/SectionEditors';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { displayText, Field, Input, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
+import DraftSaveBar from '@/components/admin/DraftSaveBar';
 import { readJsonResponse } from '@/lib/http/json';
 import RepeaterField from '@/components/admin/RepeaterField';
+import { editorRowsToHighlights, highlightsToEditorRows } from '@/lib/projects/highlights';
+import { portfolioData } from '@/lib/data';
+import type { FormattedValidationIssue } from '@/lib/schemas/validation-issues';
 
 const sections = [
   'Profile','Hero','About','Projects','Skills','Tools','Experience','Education','Certifications','Timeline','Stats','Workflow','Terminal','Contact',
@@ -42,16 +47,16 @@ function PersonalEditor({ draft, update }: { draft: PortfolioRelease; update: (n
 
   const fields: Array<[keyof typeof draft.content.personal, string, string]> = [
     ['name','Name','text'],['role','Role','text'],['location','Location','text'],['timezone','Timezone','text'],
-    ['email','Email','email'],['phone','Phone','tel'],['github','GitHub','url'],['linkedin','LinkedIn','url'],['responseTime','Response time','text'],
+    ['email','Email','email'],['phone','Phone','tel'],['github','GitHub','url'],['linkedin','LinkedIn','url'],
   ];
   return <form className="cms-form" onSubmit={(event) => event.preventDefault()} onChange={() => void form.handleSubmit(syncPersonal)()}>
     <div className="cms-form-grid">
-      {fields.map(([name,label,type]) => <label key={name}><span>{label} <b aria-hidden="true">*</b></span><input type={type} {...form.register(name)} /><small className="admin-error">{form.formState.errors[name]?.message as string}</small></label>)}
+      {fields.map(([name,label,type]) => <Field key={name} label={label} required error={form.formState.errors[name]?.message as string | undefined}><Input type={type} {...form.register(name)} /></Field>)}
     </div>
-    <label><span>Tagline <b>*</b></span><textarea rows={3} maxLength={500} {...form.register('tagline')} /><small className="cms-character-count">{form.watch('tagline')?.length ?? 0}/500</small><small className="admin-error">{form.formState.errors.tagline?.message as string}</small></label>
-    <label><span>Bio <b>*</b></span><textarea rows={7} maxLength={4000} {...form.register('bio')} /><small className="cms-character-count">{form.watch('bio')?.length ?? 0}/4000</small><small className="admin-error">{form.formState.errors.bio?.message as string}</small></label>
+    <Field label="Tagline" required helperText={`${form.watch('tagline')?.length ?? 0}/500 characters`} error={form.formState.errors.tagline?.message as string | undefined}><Textarea maxLength={500} {...form.register('tagline')} /></Field>
+    <Field label="Bio" required helperText={`${form.watch('bio')?.length ?? 0}/4000 characters`} error={form.formState.errors.bio?.message as string | undefined}><Textarea maxLength={4000} {...form.register('bio')} /></Field>
     <div className="cms-inline-options">
-      <label className="cms-toggle"><input type="checkbox" {...form.register('available')} /> Available for opportunities</label>
+      <Toggle label="Available for opportunities" checked={form.watch('available')} onChange={(available) => { form.setValue('available', available, { shouldDirty: true }); void form.handleSubmit(syncPersonal)(); }} />
       <label><span>Response time</span><input {...form.register('responseTime')} /><small className="admin-error">{form.formState.errors.responseTime?.message as string}</small></label>
     </div>
     <ImageUpload
@@ -69,10 +74,13 @@ function PersonalEditor({ draft, update }: { draft: PortfolioRelease; update: (n
 
 function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (next: PortfolioRelease) => void }) {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const requested = Number(new URLSearchParams(window.location.search).get('item'));
+    return Number.isInteger(requested) && requested >= 0 ? requested : 0;
+  });
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [stackInput, setStackInput] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const projects = draft.content.projects;
@@ -84,6 +92,10 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
   });
   const form = useForm<ProjectInput>({ resolver: zodResolver(projectSchema), defaultValues: (projects[selected] as unknown as ProjectInput) ?? projectSchema.parse({ id:'',title:'',shortDesc:'',fullDesc:'',stack:[],type:'',category:'',status:'',year:'',employer:'' }), mode:'onChange' });
   useEffect(() => { if (projects[selected]) form.reset(projects[selected] as unknown as ProjectInput); setSlugEdited(false); }, [selected]);
+  useEffect(() => {
+    const requested = Number(new URLSearchParams(window.location.search).get('item'));
+    if (Number.isInteger(requested) && requested >= 0 && requested < projects.length) setSelected(requested);
+  }, []);
 
   function syncProject(values: ProjectInput) {
     const next = [...projects];
@@ -117,30 +129,7 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
   const categories = Array.from(new Set(projects.map((project) => project.category).filter(Boolean)));
   const types = Array.from(new Set(projects.map((project) => project.type).filter(Boolean)));
   const skillSuggestions = Array.from(new Set(Object.values(draft.content.skills).flatMap((skills) => skills.map((skill) => skill.name))));
-  const highlightRows = (form.watch('highlights') ?? []).map((text, index) => ({ id: `highlight-${index}`, text }));
-
-  function addStackTag(value: string) {
-    const tag = value.trim();
-    if (!tag) return;
-    const next = Array.from(new Set([...(form.watch('stack') ?? []), tag]));
-    form.setValue('stack', next, { shouldDirty: true, shouldValidate: true });
-    syncProject({ ...form.getValues(), stack: next });
-    setStackInput('');
-  }
-  function removeStackTag(index: number) {
-    const next = [...(form.watch('stack') ?? [])];
-    next.splice(index, 1);
-    form.setValue('stack', next, { shouldDirty: true, shouldValidate: true });
-    syncProject({ ...form.getValues(), stack: next });
-  }
-  function reorderStackTag(from: number, to: number) {
-    const next = [...(form.watch('stack') ?? [])];
-    if (to < 0 || to >= next.length) return;
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    form.setValue('stack', next, { shouldDirty: true, shouldValidate: true });
-    syncProject({ ...form.getValues(), stack: next });
-  }
+  const highlightRows = highlightsToEditorRows(form.watch('highlights'));
 
   if (!projects.length) return <div className="admin-empty"><button className="admin-button primary" onClick={add}><Plus size={15}/> Add first project</button></div>;
   const project = projects[selected];
@@ -192,21 +181,21 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
     {project && <form className="cms-project-form cms-form" onSubmit={(event)=>event.preventDefault()} onChange={()=>void form.handleSubmit(syncProject)()}>
       <div className="cms-form-actions"><button type="button" className="admin-button" onClick={()=>duplicate(selected)}><Copy size={15}/> Duplicate</button><button type="button" className="admin-button" onClick={()=>move(selected,-1)}><ArrowUp size={15}/></button><button type="button" className="admin-button" onClick={()=>move(selected,1)}><ArrowDown size={15}/></button><button type="button" className="admin-button" onClick={()=>remove(selected)}><Trash2 size={15}/> Delete</button></div>
       <details className="cms-form-section" open><summary>Basics</summary><div className="cms-form-grid">
-        <label><span>Title <b>*</b></span><input {...form.register('title')} onChange={(event)=>{const title=event.target.value;form.setValue('title',title,{shouldDirty:true,shouldValidate:true});if(!slugEdited){const id=slugify(title);form.setValue('id',id,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),title,id})}else syncProject({...form.getValues(),title})}}/><small className="admin-error">{form.formState.errors.title?.message as string}</small></label>
-        <label><span>Slug / URL <b>*</b></span><input value={slug} onChange={(event)=>{setSlugEdited(true);const value=slugify(event.target.value);form.setValue('id',value,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),id:value})}}/><small>Changing this changes /projects/{slug}</small>{duplicateIds&&<small className="admin-error">Slug must be unique.</small>}<small className="admin-error">{form.formState.errors.id?.message as string}</small></label>
-        <label><span>Status</span><input list="project-statuses" {...form.register('status')}/><datalist id="project-statuses">{statuses.map((status)=><option key={status} value={status}/>)}</datalist></label>
-        <label><span>Year</span><input {...form.register('year')}/></label>
-        <label><span>Type</span><input list="project-types" {...form.register('type')}/><datalist id="project-types">{types.map((type)=><option key={type} value={type}/>)}</datalist></label>
-        <label><span>Category</span><input list="project-categories" {...form.register('category')}/><datalist id="project-categories">{categories.map((category)=><option key={category} value={category}/>)}</datalist></label>
-        <label><span>Additional categories</span><input value={form.watch('additionalCategories')?.join(', ') ?? ''} onChange={(event)=>{const additionalCategories=event.target.value.split(',').map((value)=>value.trim()).filter(Boolean);form.setValue('additionalCategories',additionalCategories,{shouldDirty:true});syncProject({...form.getValues(),additionalCategories})}}/></label>
-        <label><span>Monogram</span><input maxLength={12} {...form.register('monogram')} /></label>
-        <label><span>Period</span><input maxLength={40} {...form.register('period')} /></label>
-        <label className="cms-toggle"><input type="checkbox" {...form.register('featured')} /> Featured project</label>
-        <label className="cms-toggle"><input type="checkbox" {...form.register('visible')} /> Visible on portfolio</label>
-        <label><span>Artwork caption</span><input maxLength={200} {...form.register('artworkCaption')}/></label>
+        <Field label="Title" required error={form.formState.errors.title?.message as string | undefined}><Input {...form.register('title')} onChange={(event)=>{const title=event.target.value;form.setValue('title',title,{shouldDirty:true,shouldValidate:true});if(!slugEdited){const id=slugify(title);form.setValue('id',id,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),title,id})}else syncProject({...form.getValues(),title})}}/></Field>
+        <Field label="Slug / URL" required helperText={`Changing this changes /projects/${slug}`} error={duplicateIds ? 'Slug must be unique.' : form.formState.errors.id?.message as string | undefined}><Input value={slug} onChange={(event)=>{setSlugEdited(true);const value=slugify(event.target.value);form.setValue('id',value,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),id:value})}}/></Field>
+        <Field label="Status"><Input list="project-statuses" {...form.register('status')}/><datalist id="project-statuses">{statuses.map((status)=><option key={status} value={status}/>)}</datalist></Field>
+        <Field label="Year"><Input {...form.register('year')}/></Field>
+        <Field label="Type"><Input list="project-types" {...form.register('type')}/><datalist id="project-types">{types.map((type)=><option key={type} value={type}/>)}</datalist></Field>
+        <Field label="Category"><Input list="project-categories" {...form.register('category')}/><datalist id="project-categories">{categories.map((category)=><option key={category} value={category}/>)}</datalist></Field>
+        <TagInput label="Additional categories" value={form.watch('additionalCategories') ?? []} onChange={(additionalCategories)=>{form.setValue('additionalCategories',additionalCategories,{shouldDirty:true});syncProject({...form.getValues(),additionalCategories})}} />
+        <Field label="Monogram"><Input maxLength={12} {...form.register('monogram')} /></Field>
+        <Field label="Period"><Input maxLength={40} {...form.register('period')} /></Field>
+        <Toggle label="Featured project" checked={form.watch('featured') === true} onChange={(featured)=>{form.setValue('featured',featured,{shouldDirty:true});syncProject({...form.getValues(),featured})}} />
+        <Toggle label="Visible on portfolio" checked={form.watch('visible') !== false} onChange={(visible)=>{form.setValue('visible',visible,{shouldDirty:true});syncProject({...form.getValues(),visible})}} />
+        <Field label="Artwork caption"><Input maxLength={200} {...form.register('artworkCaption')}/></Field>
       </div></details>
-      <details className="cms-form-section"><summary>Descriptions</summary><div className="cms-form-grid"><label><span>Short description</span><textarea rows={4} maxLength={500} {...form.register('shortDesc')}/><small className="cms-character-count">{form.watch('shortDesc')?.length ?? 0}/500</small></label><label><span>Full description</span><textarea rows={7} maxLength={5000} {...form.register('fullDesc')}/><small className="cms-character-count">{form.watch('fullDesc')?.length ?? 0}/5000</small></label></div></details>
-      <details className="cms-form-section"><summary>Details</summary><div className="cms-form-grid">{(['employer','role','challenge','solution','architecture','scopeNotice','collaborationNote','projectStatusNote','techStackNote'] as const).map((name)=><label key={name}><span>{name.replace(/([A-Z])/g,' $1').replace(/^./,(letter)=>letter.toUpperCase())}</span><textarea rows={4} {...form.register(name)}/></label>)}</div></details>
+      <details className="cms-form-section"><summary>Descriptions</summary><div className="cms-form-grid"><Field label="Short description" helperText={`${form.watch('shortDesc')?.length ?? 0}/500 characters`}><Textarea maxLength={500} {...form.register('shortDesc')}/></Field><Field label="Full description" helperText={`${form.watch('fullDesc')?.length ?? 0}/5000 characters`}><Textarea maxLength={5000} {...form.register('fullDesc')}/></Field></div></details>
+      <details className="cms-form-section"><summary>Details</summary><div className="cms-form-grid">{(['employer','role','challenge','solution','architecture','scopeNotice','collaborationNote','projectStatusNote','techStackNote'] as const).map((name)=><Field key={name} label={name.replace(/([A-Z])/g,' $1').replace(/^./,(letter)=>letter.toUpperCase())}><Textarea {...form.register(name)}/></Field>)}</div></details>
       <details className="cms-form-section"><summary>Links</summary>
         <RepeaterField
           title="Project links"
@@ -216,22 +205,24 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
           itemLabel="Link"
           emptyTitle="No project links"
           emptyDescription="Add labels and URLs for all live sites or external project links."
-          getSummary={(row) => String(row.label || row.url || '')}
-          createItem={() => ({ id: `link-${Date.now()}`, label: '', url: '', icon: 'ArrowUpRight' })}
+          getSummary={(row) => displayText(row.label) || displayText(row.url)}
+          createItem={(label) => ({ id: `link-${Date.now()}`, label: label || '', url: '', icon: 'ArrowUpRight' })}
+          primaryField={{ key: 'label', label: 'link label' }}
+          requiredFields={[{ key: 'url', label: 'link URL', type: 'url' }]}
           onChange={(rows) => {
             const links = rows.map(({ label, url, icon }) => ({
-              label: String(label || ''),
-              url: String(url || ''),
-              icon: String(icon || 'ArrowUpRight'),
+              label: displayText(label),
+              url: displayText(url),
+              icon: displayText(icon, 'ArrowUpRight'),
             }));
             form.setValue('links', links as ProjectInput['links'], { shouldDirty: true, shouldValidate: true });
             syncProject({ ...form.getValues(), links: links as ProjectInput['links'] });
           }}
           renderItem={(row, _index, patch) => (
             <div className="cms-form-grid">
-              <label><span>Label <b>*</b></span><input value={String(row.label || '')} onChange={(event) => patch({ label: event.target.value })} /></label>
-              <label><span>URL <b>*</b></span><input type="url" value={String(row.url || '')} onChange={(event) => patch({ url: event.target.value })} /></label>
-              <label><span>Icon</span><input value={String(row.icon || 'ArrowUpRight')} onChange={(event) => patch({ icon: event.target.value })} /></label>
+              <Field label="Label" required><Input value={displayText(row.label)} onChange={(event) => patch({ label: event.target.value })} /></Field>
+              <Field label="URL" required><Input type="url" value={displayText(row.url)} onChange={(event) => patch({ url: event.target.value })} /></Field>
+              <Field label="Icon"><Input value={displayText(row.icon, 'ArrowUpRight')} onChange={(event) => patch({ icon: event.target.value })} /></Field>
             </div>
           )}
         />
@@ -240,17 +231,18 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
         title="Workflow steps"
         items={(form.watch('workflow') ?? []).map((step,index)=>typeof step === 'string'
           ? {id:`step-${index}`,label:step,description:''}
-          : {id:String(step.id||`step-${index}`),...step})}
+          : {id:displayText(step.id,`step-${index}`),...step})}
         itemLabel="Step"
         emptyTitle="No workflow steps"
         emptyDescription="Add ordered steps for the project process or case-study flow."
-        getSummary={(row)=>String(row.label||'')}
-        createItem={()=>({id:`step-${Date.now()}`,label:'',description:''})}
-        onChange={(rows)=>{const workflow=rows.map(({id,label,description})=>({id:String(id),label:String(label||''),description:String(description||'')}));form.setValue('workflow',workflow,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),workflow:workflow as ProjectInput['workflow']})}}
-        renderItem={(row,_index,patch)=><div className="cms-form-grid"><label><span>Step label <b>*</b></span><input value={String(row.label||'')} onChange={(event)=>patch({label:event.target.value})}/></label><label><span>Description</span><textarea rows={3} value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></label></div>}
+        getSummary={(row)=>displayText(row.label)}
+        createItem={(label)=>({id:`step-${Date.now()}`,label:label||'',description:''})}
+        primaryField={{key:'label',label:'step label'}}
+        onChange={(rows)=>{const workflow=rows.map(({id,label,description})=>({id:displayText(id),label:displayText(label),description:displayText(description)}));form.setValue('workflow',workflow,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),workflow:workflow as ProjectInput['workflow']})}}
+        renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Step label" required><Input value={displayText(row.label)} onChange={(event)=>patch({label:event.target.value})}/></Field><Field label="Description"><Textarea value={displayText(row.description)} onChange={(event)=>patch({description:event.target.value})}/></Field></div>}
       /></details>
-      <details className="cms-form-section" open><summary>Stack</summary><div className="cms-tag-input"><div className="cms-tags">{(form.watch('stack') ?? []).map((tag,index)=><span className="cms-tag" draggable key={tag} onDragStart={(event)=>event.dataTransfer.setData('text/plain',String(index))} onDragOver={(event)=>event.preventDefault()} onDrop={(event)=>{event.preventDefault();reorderStackTag(Number(event.dataTransfer.getData('text/plain')),index)}}>{tag}<button type="button" aria-label={`Remove ${tag}`} onClick={()=>removeStackTag(index)}>×</button></span>)}</div><input list="stack-suggestions" value={stackInput} placeholder="Type a technology and press Enter" onChange={(event)=>setStackInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'||event.key===','){event.preventDefault();addStackTag(stackInput)}}}/><datalist id="stack-suggestions">{skillSuggestions.map((skill)=><option key={skill} value={skill}/>)}</datalist></div></details>
-      <details className="cms-form-section" open><summary>Highlights</summary><RepeaterField title="Project highlights" items={highlightRows} itemLabel="Highlight" emptyTitle="No highlights yet" emptyDescription="Highlights summarize the project's key outcomes." getSummary={(row)=>String(row.text||'')||'Untitled highlight'} createItem={()=>({id:`highlight-${Date.now()}`,text:''})} onChange={(rows)=>{const highlights=rows.map((row)=>String(row.text??''));form.setValue('highlights',highlights,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),highlights})}} renderItem={(row,_index,patch)=><label><span>Highlight</span><textarea rows={3} value={String(row.text??'')} onChange={(event)=>patch({text:event.target.value})}/></label>}/></details>
+      <details className="cms-form-section" open><summary>Stack</summary><TagInput label="Stack" value={form.watch('stack') ?? []} onChange={(stack)=>{form.setValue('stack',stack,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),stack})}} suggestions={skillSuggestions} placeholder="Type a technology and press Enter" /></details>
+      <details className="cms-form-section" open><summary>Highlights</summary><RepeaterField title="Project highlights" items={highlightRows} itemLabel="Highlight" emptyTitle="No highlights yet" emptyDescription="Highlights summarize the project's key outcomes." getSummary={(row)=>displayText(row.text)} createItem={(text)=>({id:`highlight-${Date.now()}`,text:text||'',icon:'check'})} primaryField={{key:'text',label:'highlight text'}} onChange={(rows)=>{const highlights=editorRowsToHighlights(rows.map((row)=>({id:displayText(row.id),text:displayText(row.text),icon:displayText(row.icon,'check')})));form.setValue('highlights',highlights as unknown as ProjectInput['highlights'],{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),highlights:highlights as unknown as ProjectInput['highlights']})}} renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Highlight text" required><Textarea value={displayText(row.text)} onChange={(event)=>patch({text:event.target.value})}/></Field><Field label="Icon"><Input value={displayText(row.icon,'check')} onChange={(event)=>patch({icon:event.target.value})}/></Field></div>}/></details>
       <details className="cms-form-section"><summary>Media</summary>
         <ImageUpload label="Project thumbnail" value={form.watch('thumbnail')} alt={form.watch('thumbnailAlt')} fallback="" neutralPlaceholder onChange={(path)=>{form.setValue('thumbnail',path,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),thumbnail:path})}} onAltChange={(alt)=>{form.setValue('thumbnailAlt',alt,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),thumbnailAlt:alt})}}/>
         <ImageUpload label="Case-study cover" value={form.watch('coverImage')} alt={form.watch('coverImageAlt')} fallback="" neutralPlaceholder onChange={(path)=>{form.setValue('coverImage',path,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),coverImage:path})}} onAltChange={(alt)=>{form.setValue('coverImageAlt',alt,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),coverImageAlt:alt})}}/>
@@ -263,29 +255,111 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
 export default function ContentManager({ section }: { section: Section }) {
   const router = useRouter();
   const [draft,setDraft]=useState<PortfolioRelease|null>(null);
-  const [published,setPublished]=useState<PortfolioRelease|null>(null);
   const [saveState,setSaveState]=useState('Loading draft…');
+  const [saveError,setSaveError]=useState('');
   const [dirty,setDirty]=useState(false);
-  const [toast,setToast]=useState<{type:'success'|'error';text:string}|null>(null);
-  const [review,setReview]=useState(false);
   const [previewOpen,setPreviewOpen]=useState(true);
   const [tabsOverflow,setTabsOverflow]=useState({left:false,right:false});
   const [errorSections,setErrorSections]=useState<Set<string>>(new Set());
+  const [validationFailures,setValidationFailures]=useState<FormattedValidationIssue[]>([]);
   const tabsRef=useRef<HTMLDivElement|null>(null);
   const baseline=useRef<PortfolioRelease|null>(null);
   const latest=useRef<PortfolioRelease|null>(null);
   latest.current=draft;
 
-  const load=useCallback(async()=>{try{const [draftResponse,publishedResponse]=await Promise.all([fetch('/api/admin/draft'),fetch('/api/admin/publish')]);if(!draftResponse.ok)throw new Error('Unable to load draft');const loaded=await readJsonResponse<PortfolioRelease>(draftResponse);if(!loaded)throw new Error('Draft response was empty or invalid.');baseline.current=JSON.parse(JSON.stringify(loaded));setDraft(loaded);if(publishedResponse.ok)setPublished(await readJsonResponse<PortfolioRelease>(publishedResponse));setSaveState('No unsaved changes');}catch(error){setSaveState(error instanceof Error?error.message:'Unable to load draft')}},[]);
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/draft');
+      if (!response.ok) throw new Error('Unable to load draft');
+      const loaded = await readJsonResponse<PortfolioRelease>(response);
+      if (!loaded) throw new Error('Draft response was empty or invalid.');
+      const normalized = JSON.parse(JSON.stringify(loaded)) as PortfolioRelease;
+      const content = normalized.content as unknown as Record<string, unknown>;
+      let seeded = false;
+      const hero = (content.hero && typeof content.hero === 'object' ? content.hero : {}) as Record<string, unknown>;
+      const heroDefaults = portfolioData.hero as unknown as Record<string, unknown>;
+      for (const key of ['eyebrow', 'heading', 'description', 'supporting', 'profileImage', 'primaryCtaLabel', 'primaryCtaLink', 'secondaryCtaLabel', 'secondaryCtaLink', 'layout', 'portraitCaption', 'floatingLabelTop', 'floatingLabelBottom', 'scrollHintText']) {
+        if (!displayText(hero[key]).trim()) { hero[key] = heroDefaults[key]; seeded = true; }
+      }
+      if (hero.heading === 'Engineering ideas. Crafting experiences.') { hero.heading = heroDefaults.heading; seeded = true; }
+      if (hero.profileImage && !displayText(hero.profileImageAlt).trim()) { hero.profileImageAlt = heroDefaults.profileImageAlt || normalized.content.personal.name; seeded = true; }
+      if (!Array.isArray(hero.socialLinks) || hero.socialLinks.length === 0) { hero.socialLinks = heroDefaults.socialLinks; seeded = true; }
+      content.hero = hero;
+      const about = (content.about && typeof content.about === 'object' ? content.about : {}) as Record<string, unknown>;
+      const aboutDefaults = portfolioData.about as unknown as Record<string, unknown>;
+      for (const key of ['title', 'intro', 'portraitImage', 'portraitAlt', 'resumeLabel', 'resumeLink']) {
+        if (!displayText(about[key]).trim()) { about[key] = aboutDefaults[key]; seeded = true; }
+      }
+      const paragraphs = Array.isArray(about.paragraphs) ? about.paragraphs.filter((paragraph) => typeof paragraph === 'string' && paragraph.trim()) : [];
+      if (!paragraphs.length) { about.paragraphs = aboutDefaults.paragraphs; seeded = true; } else if (paragraphs.length !== (about.paragraphs as unknown[]).length) { about.paragraphs = paragraphs; seeded = true; }
+      const highlights = Array.isArray(about.highlights) ? about.highlights.filter((highlight) => highlight && typeof highlight === 'object') as Array<Record<string, unknown>> : [];
+      if (!highlights.length) { about.highlights = aboutDefaults.highlights; seeded = true; }
+      else {
+        const defaultHighlights = aboutDefaults.highlights as Array<Record<string, unknown>>;
+        about.highlights = highlights.map((highlight, index) => {
+          const fallback = defaultHighlights[index] ?? defaultHighlights[0];
+          const text = displayText(highlight.text, displayText(highlight.description, displayText(fallback.text)));
+          const next = {
+            ...highlight,
+            label: displayText(highlight.label, displayText(fallback.label)),
+            title: displayText(highlight.title, displayText(fallback.title)),
+            text,
+          };
+          if (next.label !== highlight.label || next.title !== highlight.title || next.text !== highlight.text || 'description' in next) seeded = true;
+          delete (next as Record<string, unknown>).description;
+          return next;
+        });
+      }
+      content.about = about;
+      const contact = (content.contact && typeof content.contact === 'object' ? content.contact : {}) as Record<string, unknown>;
+      const contactDefaults = portfolioData.contact as Record<string, unknown>;
+      for (const key of ['title', 'description', 'buttonLabel']) {
+        if (!displayText(contact[key]).trim()) { contact[key] = contactDefaults[key]; seeded = true; }
+      }
+      const links = Array.isArray(contact.links) ? contact.links.filter((link) => link && typeof link === 'object' && (displayText((link as Record<string, unknown>).label).trim() || displayText((link as Record<string, unknown>).url).trim())) : [];
+      if (links.length === 0) { contact.links = contactDefaults.links; seeded = true; } else if (links.length !== (contact.links as unknown[]).length) { contact.links = links; seeded = true; }
+      content.contact = contact;
+      const terminal = (content.terminal && typeof content.terminal === 'object' ? content.terminal : {}) as Record<string, unknown>;
+      const terminalDefaults = portfolioData.terminal as Record<string, unknown>;
+      for (const key of ['welcome', 'prompt']) {
+        if (!displayText(terminal[key]).trim()) { terminal[key] = terminalDefaults[key]; seeded = true; }
+      }
+      if (!Array.isArray(terminal.help) || terminal.help.length === 0) { terminal.help = terminalDefaults.help; seeded = true; }
+      const commands = Array.isArray(terminal.commands) ? terminal.commands.filter((command) => command && typeof command === 'object' && displayText((command as Record<string, unknown>).command).trim()) : [];
+      if (commands.length === 0) { terminal.commands = terminalDefaults.commands; seeded = true; } else if (commands.length !== (terminal.commands as unknown[]).length) { terminal.commands = commands; seeded = true; }
+      content.terminal = terminal;
+      const skills = (content.skills && typeof content.skills === 'object' ? content.skills : {}) as Record<string, unknown>;
+      for (const [category, rows] of Object.entries(skills)) {
+        if (!Array.isArray(rows)) continue;
+        const clean = rows.filter((row) => row && typeof row === 'object' && displayText((row as Record<string, unknown>).name).trim());
+        if (clean.length !== rows.length) { skills[category] = clean; seeded = true; }
+      }
+      content.skills = skills;
+      setDraft(normalized);
+      baseline.current = JSON.parse(JSON.stringify(normalized));
+      if (seeded) { setDirty(true); setSaveState('Empty items removed; defaults repaired'); }
+      else setSaveState('No unsaved changes');
+    } catch (error) {
+      setSaveState(error instanceof Error ? error.message : 'Unable to load draft');
+    }
+  }, []);
   useEffect(()=>{load()},[load]);
-  useEffect(()=>{function publishRequest(){setReview(true)}window.addEventListener('admin-publish-request',publishRequest);return()=>window.removeEventListener('admin-publish-request',publishRequest)},[]);
+  useEffect(()=>{
+    try {
+      const saved = window.sessionStorage.getItem('admin-draft-validation-failures');
+      if (saved) setValidationFailures(JSON.parse(saved) as FormattedValidationIssue[]);
+    } catch {
+      window.sessionStorage.removeItem('admin-draft-validation-failures');
+    }
+  },[]);
   useEffect(()=>{function validation(event:Event){const detail=(event as CustomEvent<{section:string;error:boolean}>).detail;setErrorSections((current)=>{const next=new Set(current);detail.error?next.add(detail.section):next.delete(detail.section);return next})}window.addEventListener('admin-section-validation',validation);return()=>window.removeEventListener('admin-section-validation',validation)},[]);
 
   const save=useCallback(async(next?:PortfolioRelease)=>{
     if(!latest.current&&!next)return;
     const value=next??latest.current!;
+    setSaveError('');
     setSaveState('Saving…');
-    try{const response=await fetch('/api/admin/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});if(!response.ok){const payload=await readJsonResponse<{error?:string}>(response);throw new Error(payload?.error||'Draft validation failed');}setDirty(false);baseline.current=JSON.parse(JSON.stringify(value));setSaveState(`Saved ${new Intl.DateTimeFormat('en',{hour:'numeric',minute:'2-digit'}).format(new Date())}`);window.dispatchEvent(new CustomEvent('admin-draft-changed',{detail:{count:1}}));}catch(error){setSaveState(error instanceof Error?error.message:'Unable to save draft')}},
+    try{const response=await fetch('/api/admin/draft',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});if(!response.ok){const payload=await readJsonResponse<{error?:string;failures?:FormattedValidationIssue[]}>(response);const failures=payload?.failures??[];setValidationFailures(failures);window.sessionStorage.setItem('admin-draft-validation-failures',JSON.stringify(failures));throw new Error(payload?.error||'Draft validation failed');}setValidationFailures([]);window.sessionStorage.removeItem('admin-draft-validation-failures');setDirty(false);baseline.current=JSON.parse(JSON.stringify(value));setSaveState(`Saved ${new Intl.DateTimeFormat('en',{hour:'numeric',minute:'2-digit'}).format(new Date())}`);window.dispatchEvent(new CustomEvent('admin-draft-changed',{detail:{count:1}}));}catch(error){const message=error instanceof Error?error.message:'Unable to save draft';setSaveState(message);setSaveError(message)}},
   []);
   useEffect(()=>{if(!dirty||!draft)return;setSaveState('Unsaved changes');const timer=window.setTimeout(()=>save(draft),1500);return()=>window.clearTimeout(timer)},[draft,dirty,save]);
   useEffect(()=>{function beforeUnload(event:BeforeUnloadEvent){if(dirty){event.preventDefault();event.returnValue=''}}window.addEventListener('beforeunload',beforeUnload);return()=>window.removeEventListener('beforeunload',beforeUnload)},[dirty]);
@@ -300,11 +374,9 @@ export default function ContentManager({ section }: { section: Section }) {
   function discard() {
     if (baseline.current) setDraft(JSON.parse(JSON.stringify(baseline.current)));
     setDirty(false);
+    setSaveError('');
     setSaveState('No unsaved changes');
   }
-  async function publish(){if(!draft)return;try{setSaveState('Publishing…');const response=await fetch('/api/admin/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});if(!response.ok){const payload=await readJsonResponse<{error?:string}>(response);throw new Error(payload?.error||'Publishing failed');}const result=await readJsonResponse<{publishedAt?:string}>(response);setPublished(draft);setDirty(false);setSaveState(`Published ${new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(new Date())}`);setReview(false);setToast({type:'success',text:'Portfolio published successfully.'});window.dispatchEvent(new CustomEvent('admin-published',{detail:{time:result?.publishedAt}}));}catch(error){setReview(false);setToast({type:'error',text:error instanceof Error?error.message:'Unable to publish. Please retry.'})}}
-
-  useEffect(()=>{if(!toast)return;const timer=window.setTimeout(()=>setToast(null),5000);return()=>window.clearTimeout(timer)},[toast]);
 
   const activeSection=useMemo(()=>section.toLowerCase(),[section]);
   useEffect(() => {
@@ -318,6 +390,38 @@ export default function ContentManager({ section }: { section: Section }) {
     observer.observe(element);
     return () => { element.removeEventListener('scroll', updateOverflow); observer.disconnect(); };
   }, [activeSection]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedField = params.get('focus');
+    if (!requestedField) return;
+    const itemIndex = params.get('item');
+    const timer = window.setTimeout(() => {
+      const root = document.querySelector<HTMLElement>('.cms-editor');
+      if (!root) return;
+      const scope = itemIndex === null
+        ? root
+        : root.querySelector<HTMLElement>(`#item-${Number(itemIndex)}`) ?? root;
+      const normalize = (value: string) => value.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const expected = normalize(requestedField.split('.').at(-1) || requestedField);
+      const aliases: Record<string, string[]> = { text: ['paragraph'], credentialurl: ['url'], typebadge: ['typebadgetext'] };
+      const candidates = Array.from(scope.querySelectorAll<HTMLElement>('.cms-field'));
+      const field = candidates.find((candidate) => {
+        const label = candidate.querySelector<HTMLElement>('.cms-field-label')?.innerText || '';
+        const input = candidate.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select');
+        const key = normalize(label);
+        const name = normalize(input?.getAttribute('name') || '');
+        return key === expected || name === expected || (aliases[expected] || []).some((alias) => key === normalize(alias));
+      });
+      const control = field?.querySelector<HTMLElement>('input:not([type="checkbox"]),textarea,select,button')
+        || scope.querySelector<HTMLElement>('input:not([type="checkbox"]),textarea,select');
+      if (control instanceof HTMLElement) {
+        control.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        control.focus({ preventScroll: true });
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [activeSection, draft]);
 
   function sectionChanged(item: typeof sections[number]) {
     if (!draft || !baseline.current) return false;
@@ -344,11 +448,12 @@ export default function ContentManager({ section }: { section: Section }) {
     <header className="admin-header"><div><p className="admin-eyebrow">Draft editor</p><h1>Content manager</h1><p className={`cms-save-state${dirty?' is-dirty':''}`} role="status">{dirty?'Unsaved changes · ':''}{saveState}</p></div></header>
     <div className={`cms-tabs-shell${tabsOverflow.left?' fade-left':''}${tabsOverflow.right?' fade-right':''}`}>
       {tabsOverflow.left && <button type="button" className="cms-tab-scroll left" aria-label="Scroll tabs left" onClick={()=>tabsRef.current?.scrollBy({left:-220,behavior:'smooth'})}><ChevronLeft size={16}/></button>}
-      <div className="cms-tabs" role="tablist" aria-label="Portfolio sections" ref={tabsRef}>{sections.map((item,index)=>{const key=item.toLowerCase();const changed=sectionChanged(item);const error=errorSections.has(item);return <button key={item} role="tab" aria-selected={activeSection===key} tabIndex={activeSection===key?0:-1} className={activeSection===key?'is-active':''} onClick={()=>router.push(`/admin/content/${key}`)} onKeyDown={(event)=>tabKeyDown(event,index)}>{error?<span className="cms-status-dot is-error" title={`${item} has validation errors`}/>:changed&&<span className="cms-status-dot is-draft" title={`${item} has unpublished changes`}/>}<span>{item}</span></button>})}</div>
+      <div className="cms-tabs" role="tablist" aria-label="Portfolio sections" ref={tabsRef}>{sections.map((item,index)=>{const key=item.toLowerCase();const changed=sectionChanged(item);const error=errorSections.has(item)||validationFailures.some((failure)=>failure.tab===item);return <button key={item} role="tab" aria-selected={activeSection===key} tabIndex={activeSection===key?0:-1} className={activeSection===key?'is-active':''} onClick={()=>router.push(`/admin/content/${key}`)} onKeyDown={(event)=>tabKeyDown(event,index)}>{error?<span className="cms-status-dot is-error" title={`${item} has validation errors`}/>:changed&&<span className="cms-status-dot is-draft" title={`${item} has unpublished changes`}/>}<span>{item}</span></button>})}</div>
       {tabsOverflow.right && <button type="button" className="cms-tab-scroll right" aria-label="Scroll tabs right" onClick={()=>tabsRef.current?.scrollBy({left:220,behavior:'smooth'})}><ChevronRight size={16}/></button>}
     </div>
     <select className="cms-mobile-select" aria-label="Portfolio section" value={activeSection} onChange={(event)=>router.push(`/admin/content/${event.target.value}`)}>{sections.map(item=>{const key=item.toLowerCase();return <option value={key} key={key}>{item}</option>})}</select>
     <section className="cms-editor">
+      {validationFailures.length>0&&<section className="cms-validation-summary" aria-labelledby="validation-summary-title"><h2 id="validation-summary-title">Draft validation needs attention</h2><ul>{validationFailures.map((failure,index)=>{const query=new URLSearchParams({focus:failure.field});if(failure.itemIndex!==undefined)query.set('item',String(failure.itemIndex));const hash=failure.itemIndex===undefined?'':`#item-${failure.itemIndex}`;return <li key={`${failure.tab}-${failure.field}-${index}`}><a href={`/admin/content/${failure.tab.toLowerCase()}?${query.toString()}${hash}`}><strong>{failure.tab}</strong> &gt; {failure.item} &gt; {failure.field}: {failure.message}</a></li>})}</ul></section>}
       {section==='Profile'&&<div className="cms-profile-layout"><PersonalEditor draft={draft} update={update}/><aside className={`cms-live-preview${previewOpen?'':' is-collapsed'}`}><div className="cms-preview-header"><h2>Live preview</h2><button type="button" className="admin-button" onClick={()=>setPreviewOpen((value)=>!value)}>{previewOpen?'Collapse':'Expand'}</button></div>{previewOpen&&<div className="cms-preview-hero"><span className="cms-preview-eyebrow">{draft.content.personal.role}</span><h3>{draft.content.personal.name}</h3><p>{draft.content.personal.tagline}</p><p>{draft.content.personal.bio}</p><div className="cms-preview-links"><span>{draft.content.personal.github}</span><span>{draft.content.personal.linkedin}</span></div></div>}</aside></div>}
       {section==='Projects'&&<ProjectsEditor draft={draft} update={update}/>}
       {section==='Skills'&&<RepeatEditor section="Skills" draft={draft} update={update}/>}
@@ -364,11 +469,6 @@ export default function ContentManager({ section }: { section: Section }) {
       {section==='Terminal'&&<RepeatEditor section="Terminal" draft={draft} update={update}/>}
       {section==='Contact'&&<RepeatEditor section="Contact" draft={draft} update={update}/>}
     </section>
-    <div className="cms-sticky-actions" aria-live="polite">
-      <span className={dirty?'is-dirty':''}>{saveState}</span>
-      <div><button type="button" className="admin-button" disabled={!dirty} onClick={discard}><RotateCcw size={15}/> Discard</button><button type="button" className="admin-button primary" disabled={!dirty || saveState==='Saving…'} onClick={()=>void save()}>{saveState==='Saving…'?'Saving…':'Save draft'}</button></div>
-    </div>
-    {review&&<div className="cms-dialog-backdrop" role="presentation"><div className="cms-dialog" role="dialog" aria-modal="true" aria-labelledby="publish-title"><p className="admin-eyebrow">Review changes</p><h2 id="publish-title">Publish portfolio</h2><p>Changed sections will replace the live public release after confirmation.</p><div className="cms-diff">{sections.filter(item=>item==='Profile'||item==='Projects'||item==='Hero'||item==='About'||item==='Skills'||item==='Tools'||item==='Experience'||item==='Education'||item==='Certifications'||item==='Timeline'||item==='Stats'||item==='Workflow'||item==='Terminal'||item==='Contact').map(item=><div key={item}><span>{item}</span><span className={dirty?'is-changed':'is-current'}>{dirty?'Draft changed':'Unchanged'}</span></div>)}</div><div className="cms-dialog-actions"><button className="admin-button" onClick={()=>setReview(false)}>Cancel</button><button className="admin-button primary" onClick={publish}>Confirm publish</button></div></div></div>}
-    {toast&&<div className={`cms-toast ${toast.type}`} role="status" aria-live="polite"><CheckCircle2 size={18}/><span>{toast.text}</span>{toast.type==='error'&&<button onClick={publish}>Retry</button>}</div>}
+    <DraftSaveBar state={saveState} dirty={dirty} error={saveError} onDiscard={discard} onSave={()=>void save()} onRetry={()=>void save()} />
   </>;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Field, Input } from '@/components/admin/AdminFields';
 import { Image as ImageIcon, Upload, X } from 'lucide-react';
 import { readJsonResponse } from '@/lib/http/json';
 
@@ -12,6 +13,8 @@ export default function ImageUpload({
   fallback = '/images/thinu-profile.png',
   label = 'Image',
   neutralPlaceholder = false,
+  altRequired = false,
+  altError,
 }: {
   value?: string;
   alt?: string;
@@ -20,6 +23,8 @@ export default function ImageUpload({
   fallback?: string;
   label?: string;
   neutralPlaceholder?: boolean;
+  altRequired?: boolean;
+  altError?: string;
 }) {
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
@@ -83,7 +88,7 @@ export default function ImageUpload({
       {progress > 0 && progress < 100 && <progress className="cms-upload-progress" max={100} value={progress} />}
       {progress === 100 && <small className="cms-upload-success">Upload complete</small>}
       {error && <small className="admin-error" role="alert">{error}</small>}
-      <label><span>{label} alt text</span><input value={alt || ''} onChange={(event) => onAltChange(event.target.value)} /></label>
+      <Field label={`${label} alt text`} required={altRequired && Boolean(value)} error={altError}><Input value={alt || ''} onChange={(event) => onAltChange(event.target.value)} /></Field>
     </div>
   );
 }

@@ -117,6 +117,8 @@ export const projectSchema = z.object({
   }
 });
 
+const heroLink = z.string().max(500).refine((value) => !value || value.startsWith('#') || value.startsWith('/') || /^https?:\/\//i.test(value), 'Use a web URL, local path, or section anchor.');
+
 export const portfolioSchema = z.object({
   personal: personalSchema,
   navigation: navigationSchema.optional(),
@@ -130,21 +132,39 @@ export const portfolioSchema = z.object({
     profileImage: z.string().max(500),
     profileImageAlt: z.string().max(160).optional(),
     primaryCtaLabel: z.string().max(80).optional(),
-    primaryCtaLink: z.string().max(500).optional(),
+    primaryCtaLink: heroLink.optional(),
     secondaryCtaLabel: z.string().max(80).optional(),
-    secondaryCtaLink: z.string().max(500).optional(),
+    secondaryCtaLink: heroLink.optional(),
+    socialLinks: z.array(z.object({ label: z.string().min(1).max(80), url: heroLink, icon: z.string().max(40).optional() })).max(12).optional(),
+    portraitCaption: z.string().max(240).optional(),
+    floatingLabelTop: z.string().max(120).optional(),
+    floatingLabelBottom: z.string().max(120).optional(),
+    scrollHintText: z.string().max(120).optional(),
     layout: z.enum(['split', 'centered', 'terminal', 'minimal']).optional(),
+  }).superRefine((hero, ctx) => {
+    if (hero.profileImage && !hero.profileImageAlt?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['profileImageAlt'], message: 'Alt text is required when a hero image is set.' });
+    }
   }).optional(),
   about: z.object({
     title: z.string().max(200),
+    intro: z.string().max(1000).optional(),
     paragraphs: z.array(z.string().max(2000)).max(20).optional(),
     highlights: z.array(z.object({
+      label: z.string().max(120).optional(),
       title: z.string().max(160),
-      description: z.string().max(1000),
+      text: z.string().max(1000).optional(),
+      description: z.string().max(1000).optional(),
       hidden: z.boolean().optional(),
     })).max(20).optional(),
     portraitImage: z.string().max(500).optional(),
     portraitAlt: z.string().max(160).optional(),
+    resumeLabel: z.string().max(80).optional(),
+    resumeLink: z.string().max(500).optional(),
+  }).superRefine((about, ctx) => {
+    if (about.portraitImage && !about.portraitAlt?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['portraitAlt'], message: 'Alt text is required when an About portrait is set.' });
+    }
   }).optional(),
   tools: z.array(z.object({
     id: z.string().min(1),
@@ -172,6 +192,7 @@ export const portfolioSchema = z.object({
   contact: z.object({
     title: z.string().max(200),
     description: z.string().max(1000),
+    buttonLabel: z.string().max(80).optional(),
     links: z.array(z.object({
       label: z.string().min(1).max(80),
       url: z.string().max(500),
@@ -200,11 +221,11 @@ export const portfolioSchema = z.object({
     description: z.string().max(1000).optional(),
     icon: z.string().max(40).optional(),
     core: z.array(z.string().max(100)).max(100).optional(),
-    coreTools: z.array(z.string().max(100)).max(100).optional(),
+    coreTools: z.array(z.string().max(100)).max(100).default([]),
     more: z.array(z.string().max(100)).max(100).optional(),
-    alsoExplored: z.array(z.string().max(100)).max(100).optional(),
-    order: z.number().int().min(0).optional(),
-    visible: z.boolean().optional(),
+    alsoExplored: z.array(z.string().max(100)).max(100).default([]),
+    order: z.number().int().min(0).default(0),
+    visible: z.boolean().default(true),
   }).passthrough()).max(50),
   familiarityNote: z.string().max(500).optional(),
   experience: z.array(z.object({

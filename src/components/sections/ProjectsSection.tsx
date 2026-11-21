@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Folder, FolderOpen, ExternalLink, Github, X, ChevronRight } from 'lucide-react';
 import { portfolioData } from '@/lib/data';
+import { projectHighlightText } from '@/lib/projects/highlights';
 
 const { projects } = portfolioData;
 
@@ -161,7 +162,7 @@ export default function ProjectsSection() {
                       {active.highlights.map((h, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-text-dim">
                           <ChevronRight size={14} className="text-accent mt-0.5 shrink-0" />
-                          {h}
+                          {projectHighlightText(h)}
                         </li>
                       ))}
                     </ul>

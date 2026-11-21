@@ -6,8 +6,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import RepeaterField, { type RepeaterItem } from '@/components/admin/RepeaterField';
 import ImageUpload from '@/components/admin/ImageUpload';
+import AboutSection from '@/components/portfolio/AboutSection';
+import { displayText, displayTextList, Field, Input, Select, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
+import HeroSection from '@/components/portfolio/HeroSection';
 import type { PortfolioRelease } from '@/lib/schemas/portfolio.schema';
+import { portfolioData } from '@/lib/data';
+import { deriveFlatSkills } from '@/lib/projects/toolkit';
 
+const heroLinkSchema = z.string().max(500).refine((value) => !value || value.startsWith('#') || value.startsWith('/') || /^https?:\/\//i.test(value), 'Use a web URL, local path, or section anchor.');
 const heroSchema = z.object({
   eyebrow: z.string().min(1).max(200),
   heading: z.string().min(1).max(500),
@@ -16,26 +22,40 @@ const heroSchema = z.object({
   profileImage: z.string().min(1).max(500),
   profileImageAlt: z.string().max(160).optional(),
   primaryCtaLabel: z.string().max(80).optional(),
-  primaryCtaLink: z.union([z.string().url(), z.literal('')]).optional(),
+  primaryCtaLink: heroLinkSchema.optional(),
   secondaryCtaLabel: z.string().max(80).optional(),
-  secondaryCtaLink: z.union([z.string().url(), z.literal('')]).optional(),
+  secondaryCtaLink: heroLinkSchema.optional(),
+  socialLinks: z.array(z.object({ id: z.string().optional(), label: z.string().min(1).max(80), url: heroLinkSchema, icon: z.string().max(40).optional() })).max(12).optional(),
+  portraitCaption: z.string().max(240).optional(),
+  floatingLabelTop: z.string().max(120).optional(),
+  floatingLabelBottom: z.string().max(120).optional(),
+  scrollHintText: z.string().max(120).optional(),
   layout: z.enum(['split', 'centered', 'terminal', 'minimal']).optional(),
+}).superRefine((hero, ctx) => {
+  if (hero.profileImage && !hero.profileImageAlt?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['profileImageAlt'], message: 'Alt text is required when a hero image is set.' });
+  }
 });
 
 type HeroValue = z.infer<typeof heroSchema>;
 const aboutSchema = z.object({
   title: z.string().min(1).max(200),
-  paragraphs: z.array(z.string().min(1).max(2000)).min(1).max(20),
-  highlights: z.array(z.object({ title: z.string().min(1).max(160), description: z.string().min(1).max(1000), hidden: z.boolean().optional() })).max(20).optional(),
+  intro: z.string().max(1000).optional(),
+  paragraphs: z.array(z.string().min(1).max(2000)).max(20),
+  highlights: z.array(z.object({ label: z.string().max(120).optional(), title: z.string().min(1).max(160), text: z.string().min(1).max(1000).optional(), description: z.string().max(1000).optional(), hidden: z.boolean().optional() })).max(20).optional(),
   portraitImage: z.string().max(500).optional(),
   portraitAlt: z.string().max(160).optional(),
+  resumeLabel: z.string().max(80).optional(),
+  resumeLink: z.string().max(500).optional(),
+}).superRefine((about, ctx) => {
+  if (about.portraitImage && !about.portraitAlt?.trim()) ctx.addIssue({ code: 'custom', path: ['portraitAlt'], message: 'Alt text is required when an About portrait is set.' });
 });
 
 function AdvancedJson({ value, onApply, title, validate }: { value: unknown; onApply: (value: unknown) => void; title: string; validate?: (value: unknown) => { success: boolean; error?: z.ZodError } }) {
-  const [text, setText] = useState(JSON.stringify(value, null, 2));
+  const [text, setText] = useState(JSON.stringify(value ?? null, null, 2) ?? 'null');
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => setText(JSON.stringify(value, null, 2)), [value]);
+  useEffect(() => setText(JSON.stringify(value ?? null, null, 2) ?? 'null'), [value]);
   return (
     <details className="cms-advanced" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary>Advanced: edit {title} as JSON</summary>
@@ -62,55 +82,74 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
   const record = draft.content as unknown as Record<string, unknown>;
   const value = (record.about as {
     title?: string;
+    intro?: string;
     paragraphs?: string[];
-    highlights?: Array<{ title: string; description: string; hidden?: boolean }>;
+    highlights?: Array<{ label?: string; title: string; text?: string; description?: string; hidden?: boolean }>;
     portraitImage?: string;
     portraitAlt?: string;
+    resumeLabel?: string;
+    resumeLink?: string;
   } | undefined) ?? { title: '' };
-  const paragraphs = value.paragraphs?.length ? value.paragraphs : [];
+  const paragraphs = Array.isArray(value.paragraphs) ? value.paragraphs.filter((paragraph): paragraph is string => typeof paragraph === 'string') : [];
+  const aboutParseResult = aboutSchema.safeParse(value);
+  const aboutAltError = aboutParseResult.success ? undefined : aboutParseResult.error.issues.find((issue) => issue.path[0] === 'portraitAlt')?.message;
 
   function patchAbout(patch: Record<string, unknown>) {
     update({ ...draft, content: { ...draft.content, about: { ...value, ...patch } } as PortfolioRelease['content'] });
   }
 
   return (
-    <div className="cms-profile-layout">
+    <div className="cms-profile-layout cms-about-editor-layout">
       <div className="cms-form">
         {!record.about && <p className="cms-warning">Existing About data was missing; safe defaults are shown.</p>}
-        <label><span>Heading <b>*</b></span><input value={value.title || ''} maxLength={200} onChange={(event) => patchAbout({ title: event.target.value })} /></label>
+        <Field label="Heading" required><Input value={value.title || ''} maxLength={200} onChange={(event) => patchAbout({ title: event.target.value })} /></Field>
+        <Field label="Intro line"><Input value={value.intro || ''} maxLength={1000} onChange={(event) => patchAbout({ intro: event.target.value })} /></Field>
         <RepeaterField
           title="Paragraphs"
           items={paragraphs.map((text, index) => ({ id: `paragraph-${index}`, text }))}
-          onChange={(rows) => patchAbout({ paragraphs: rows.map((row) => String(row.text ?? '')) })}
-          createItem={() => ({ id: `paragraph-${Date.now()}`, text: '' })}
+          onChange={(rows) => patchAbout({ paragraphs: rows.map((row) => displayText(row.text)) })}
+          createItem={(text) => ({ id: `paragraph-${Date.now()}`, text: text || '' })}
+          primaryField={{ key: 'text', label: 'paragraph text' }}
           itemLabel="Paragraph"
           emptyTitle="No paragraphs yet"
           emptyDescription="Paragraphs form the main About text. Add one or more short sections."
-          getSummary={(row) => String(row.text || '').slice(0, 48) || 'Untitled paragraph'}
-          renderItem={(row, _index, patch) => <label><span>Paragraph</span><textarea rows={4} maxLength={2000} value={String(row.text ?? '')} onChange={(event) => patch({ text: event.target.value })} /><small className="cms-character-count">{String(row.text ?? '').length}/2000</small></label>}
+          getSummary={(row) => displayText(row.text).slice(0, 48)}
+          renderItem={(row, _index, patch) => <Field label="Paragraph" helperText={`${displayText(row.text).length}/2000 characters`}><Textarea maxLength={2000} value={displayText(row.text)} onChange={(event) => patch({ text: event.target.value })} /></Field>}
         />
         <RepeaterField
-          title="Highlights"
+          title="Approach and practice cards"
           items={(value.highlights ?? []).map((row, index) => ({ id: `highlight-${index}`, ...row }))}
           onChange={(rows) => patchAbout({ highlights: rows.map(({ id: _id, ...row }) => row) })}
-          createItem={() => ({ id: `highlight-${Date.now()}`, title: '', description: '' })}
-          itemLabel="Highlight"
-          emptyTitle="No highlights yet"
-          emptyDescription="Highlights appear as short bullet points beside your About text."
-          getSummary={(row) => String(row.title || row.description || '') || 'Untitled highlight'}
-          renderItem={(row, _index, patch) => <div className="cms-form-grid"><label><span>Title <b>*</b></span><input value={String(row.title ?? '')} onChange={(event) => patch({ title: event.target.value })} /></label><label><span>Description</span><textarea rows={3} value={String(row.description ?? '')} onChange={(event) => patch({ description: event.target.value })} /></label></div>}
+          createItem={(title) => ({ id: `about-card-${Date.now()}`, label: '', title: title || '', text: '' })}
+          primaryField={{ key: 'title', label: 'card title' }}
+          requiredFields={[{ key: 'title', label: 'card title' }, { key: 'text', label: 'card text' }]}
+          itemLabel="About card"
+          emptyTitle="No custom cards"
+          emptyDescription="The public About section will show its two default cards when this list is empty."
+          getSummary={(row) => displayText(row.title) || displayText(row.text, displayText(row.description))}
+          renderItem={(row, _index, patch) => <div className="cms-form-grid"><Field label="Label"><Input value={displayText(row.label)} onChange={(event) => patch({ label: event.target.value })} /></Field><Field label="Title" required><Input value={displayText(row.title)} onChange={(event) => patch({ title: event.target.value })} /></Field><Field label="Text" required><Textarea value={displayText(row.text, displayText(row.description))} onChange={(event) => patch({ text: event.target.value, description: undefined })} /></Field></div>}
         />
+        <p className="cms-status-chip is-ready">Shown on site: About content and its two default cards render in the public homepage section.</p>
+        <div className="cms-form-grid">
+          <Field label="Resume link label"><Input value={value.resumeLabel || ''} maxLength={80} onChange={(event) => patchAbout({ resumeLabel: event.target.value })} /></Field>
+          <Field label="Resume link"><Input value={value.resumeLink || ''} maxLength={500} onChange={(event) => patchAbout({ resumeLink: event.target.value })} /></Field>
+        </div>
         <ImageUpload
           label="Portrait"
           value={value.portraitImage}
           alt={value.portraitAlt}
+          altRequired
+          altError={aboutAltError}
           fallback="/images/thinu-profile.png"
           onChange={(path) => patchAbout({ portraitImage: path })}
           onAltChange={(alt) => patchAbout({ portraitAlt: alt })}
         />
         <AdvancedJson title="About" value={value} validate={(next) => aboutSchema.safeParse(next)} onApply={(next) => update({ ...draft, content: { ...draft.content, about: next as never } })} />
       </div>
-      <Preview title="About preview"><h3>{value.title}</h3>{paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</Preview>
+      <aside className="cms-live-preview cms-about-real-preview">
+        <div className="cms-preview-header"><h2>About preview</h2></div>
+        <div className="cms-about-real-frame"><AboutSection about={value as NonNullable<Parameters<typeof AboutSection>[0]['about']>} personal={draft.content.personal} animated={false} /></div>
+      </aside>
     </div>
   );
 }
@@ -123,19 +162,18 @@ export function RepeatEditor({ draft, update, section }: {
   const record = draft.content as unknown as Record<string, unknown>;
   let items: RepeatRow[] = [];
 
-  if (section === 'Stats') items = ((record.stats as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `stat-${index}`) }));
-  if (section === 'Timeline') items = ((record.timeline as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `timeline-${index}`) }));
-  if (section === 'Tools') items = ((record.tools as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `tool-${index}`) }));
-  if (section === 'Workflow') items = ((record.workflow as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `workflow-${index}`) }));
-  if (section === 'Experience') items = ((record.experience as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `experience-${index}`) }));
-  if (section === 'Education') items = ((record.education as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `education-${index}`) }));
-  if (section === 'Certifications') items = ((record.certifications as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `certification-${index}`) }));
-  if (section === 'Contact') items = (((record.contact as { links?: RepeatRow[] } | undefined)?.links) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `contact-${index}`) }));
-  if (section === 'Terminal') items = (((record.terminal as { commands?: RepeatRow[] } | undefined)?.commands) ?? []).map((row, index) => ({ ...row, id: String(row.id ?? `terminal-${index}`) }));
+  if (section === 'Stats') items = ((record.stats as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `stat-${index}`) }));
+  if (section === 'Timeline') items = ((record.timeline as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `timeline-${index}`) }));
+  if (section === 'Tools') items = ((record.tools as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `tool-${index}`) }));
+  if (section === 'Workflow') items = ((record.workflow as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `workflow-${index}`) }));
+  if (section === 'Experience') items = ((record.experience as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `experience-${index}`) }));
+  if (section === 'Education') items = ((record.education as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `education-${index}`) }));
+  if (section === 'Certifications') items = ((record.certifications as RepeatRow[] | undefined) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `certification-${index}`) }));
+  if (section === 'Contact') items = (((record.contact as { links?: RepeatRow[] } | undefined)?.links) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `contact-${index}`) }));
+  if (section === 'Terminal') items = (((record.terminal as { commands?: RepeatRow[] } | undefined)?.commands) ?? []).map((row, index) => ({ ...row, id: displayText(row.id, `terminal-${index}`) }));
   if (section === 'Skills') {
-    items = Object.entries((record.skills as Record<string, unknown> | undefined) ?? {}).flatMap(([category, rows]) =>
-      ((rows as Array<{ name: string; years: number }> | undefined) ?? []).map((row, index) => ({ id: `${category}-${index}`, name: row.name, years: row.years, category }))
-    );
+    const categories=(record.skillCategories as Array<Record<string,unknown>>|undefined) ?? (portfolioData.skillCategories as unknown as Array<Record<string,unknown>>);
+    items=categories.map((row,index)=>({ ...row,id:displayText(row.id,`skill-category-${index}`),title:displayText(row.title),description:displayText(row.description),icon:displayText(row.icon,'frontend'),order:Number(row.order??index),visible:row.visible!==false,coreTools:displayTextList(row.coreTools??row.core),alsoExplored:displayTextList(row.alsoExplored??row.more) })) as RepeatRow[];
   }
 
   function change(next: RepeatRow[]) {
@@ -149,47 +187,45 @@ export function RepeatEditor({ draft, update, section }: {
     if (section === 'Contact') update({ ...draft, content: { ...draft.content, contact: { ...(record.contact as object), links: next } } as unknown as PortfolioRelease['content'] });
     if (section === 'Terminal') update({ ...draft, content: { ...draft.content, terminal: { ...(record.terminal as object), commands: next } } as unknown as PortfolioRelease['content'] });
     if (section === 'Skills') {
-      const skills: Record<string, Array<{ name: string; years: number }>> = {};
-      next.forEach((row) => {
-        const category = String(row.category || 'languages');
-        if (!skills[category]) skills[category] = [];
-        skills[category].push({ name: String(row.name || ''), years: Number(row.years || 0) });
-      });
-      update({ ...draft, content: { ...draft.content, skills } as PortfolioRelease['content'] });
+      const skillCategories=next.map((row,index)=>({title:displayText(row.title),description:displayText(row.description),icon:displayText(row.icon,'frontend'),order:index,visible:row.visible!==false,coreTools:displayTextList(row.coreTools),alsoExplored:displayTextList(row.alsoExplored)}));
+      const skills=deriveFlatSkills(skillCategories);
+      update({ ...draft, content: { ...draft.content, skillCategories, skills } as unknown as PortfolioRelease['content'] });
+      return;
     }
   }
 
-  function createItem(): RepeatRow {
-    if (section === 'Stats') return { id: `stat-${Date.now()}`, label: '', value: '', icon: 'calendar' };
-    if (section === 'Timeline') return { id: `timeline-${Date.now()}`, year: '', title: '', description: '', type: 'education' };
-    if (section === 'Tools') return { id: `tool-${Date.now()}`, name: '', description: '', category: '' };
-    if (section === 'Workflow') return { id: `workflow-${Date.now()}`, label: '', description: '', tools: [] };
-    if (section === 'Terminal') return { id: `terminal-${Date.now()}`, command: '', output: [] };
-    if (section === 'Contact') return { id: `contact-${Date.now()}`, label: '', url: '', icon: 'Mail' };
-    if (section === 'Experience') return { id: `experience-${Date.now()}`, role: '', company: '', period: '', type: 'Full-Time', commits: [] };
-    if (section === 'Education') return { id: `education-${Date.now()}`, degree: '', institution: '', period: '', type: 'Degree' };
-    if (section === 'Certifications') return { id: `certification-${Date.now()}`, name: '', issuer: '' };
-    return { id: `skill-${Date.now()}`, name: '', years: 1, category: 'languages' };
+  function createItem(primaryValue?: string): RepeatRow {
+    if (section === 'Stats') return { id: `stat-${Date.now()}`, label: primaryValue || '', value: '', icon: 'calendar' };
+    if (section === 'Timeline') return { id: `timeline-${Date.now()}`, year: '', title: primaryValue || '', description: '', type: 'education' };
+    if (section === 'Tools') return { id: `tool-${Date.now()}`, name: primaryValue || '', description: '', category: '' };
+    if (section === 'Workflow') return { id: `workflow-${Date.now()}`, label: primaryValue || '', description: '', tools: [] };
+    if (section === 'Terminal') return { id: `terminal-${Date.now()}`, command: primaryValue || '', output: [] };
+    if (section === 'Contact') return { id: `contact-${Date.now()}`, label: primaryValue || '', url: '', icon: 'Mail' };
+    if (section === 'Experience') return { id: `experience-${Date.now()}`, role: primaryValue || '', company: '', period: '', type: 'Full-Time', commits: [] };
+    if (section === 'Education') return { id: `education-${Date.now()}`, degree: primaryValue || '', institution: '', period: '', type: 'Degree' };
+    if (section === 'Certifications') return { id: `certification-${Date.now()}`, name: primaryValue || '', issuer: '' };
+    return { id: `skill-category-${Date.now()}`, title: primaryValue || '', description: '', icon: 'frontend', order: 0, visible: true, coreTools: [], alsoExplored: [] };
   }
 
   function renderItem(row: RepeatRow, _index: number, patch: (value: Partial<RepeatRow>) => void) {
-    const textField = (label: string, name: string, type = 'text') => (
-      <label><span>{label} <b>*</b></span><input type={type} value={String(row[name] ?? '')} onChange={(event) => patch({ [name]: event.target.value })} /></label>
-    );
-    if (section === 'Stats') return <div className="cms-form-grid">{textField('Label', 'label')}{textField('Value', 'value')}<label><span>Icon</span><select value={String(row.icon || 'calendar')} onChange={(event) => patch({ icon: event.target.value })}>{['calendar','folder','cpu','server','award','briefcase','graduation','code','database','globe'].map((icon) => <option key={icon}>{icon}</option>)}</select></label></div>;
-    if (section === 'Timeline') return <div className="cms-form-grid">{textField('Year', 'year')}{textField('Title', 'title')}<label><span>Type</span><select value={String(row.type || 'education')} onChange={(event) => patch({ type: event.target.value })}>{['education','work','promotion','achievement'].map((type) => <option key={type}>{type}</option>)}</select></label><label><span>Description</span><textarea rows={4} value={String(row.description || '')} onChange={(event) => patch({ description: event.target.value })} /></label></div>;
-    if (section === 'Tools') return <div className="cms-form-grid">{textField('Name', 'name')}<label><span>Category</span><input value={String(row.category || '')} onChange={(event) => patch({ category: event.target.value })} /></label><label><span>Description</span><textarea rows={3} value={String(row.description || '')} onChange={(event) => patch({ description: event.target.value })} /></label></div>;
-    if (section === 'Workflow') return <div className="cms-form-grid">{textField('Label', 'label')}<label><span>Description</span><textarea rows={3} value={String(row.description || '')} onChange={(event) => patch({ description: event.target.value })} /></label><label><span>Tools (comma separated)</span><input value={(row.tools as string[] | undefined)?.join(', ') || ''} onChange={(event) => patch({ tools: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) })} /></label></div>;
-    if (section === 'Terminal') return <div className="cms-form-grid">{textField('Command', 'command')}<label><span>Output lines</span><textarea rows={6} value={(row.output as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ output: event.target.value.split('\n') })} /><small className="cms-terminal-preview">$ {String(row.command || '')}<br />{(row.output as string[] | undefined)?.join(' · ')}</small></label></div>;
-    if (section === 'Contact') return <div className="cms-form-grid">{textField('Label', 'label')}{textField('URL', 'url', 'url')}<label><span>Icon</span><select value={String(row.icon || 'Mail')} onChange={(event) => patch({ icon: event.target.value })}>{['Mail','Phone','Github','Linkedin','MapPin','ArrowUpRight','Resume'].map((icon) => <option key={icon}>{icon}</option>)}</select></label></div>;
-    if (section === 'Experience') return <div className="cms-form-grid">{textField('Role', 'role')}{textField('Company', 'company')}{textField('Subsidiary', 'parent')}{textField('Period', 'period')}<label><span>Type</span><input value={String(row.type || '')} onChange={(event) => patch({ type: event.target.value })} /></label><label><span>Type badge text</span><input value={String(row.typeBadge || '')} onChange={(event) => patch({ typeBadge: event.target.value })} /></label><label><span>Commits (one per line)</span><textarea rows={6} value={(row.commits as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ commits: event.target.value.split('\n').filter(Boolean) })} /></label></div>;
-    if (section === 'Education') return <div className="cms-form-grid">{textField('Degree', 'degree')}{textField('Institution', 'institution')}{textField('Period', 'period')}<label><span>Status label</span><input value={String(row.statusLabel || '')} onChange={(event) => patch({ statusLabel: event.target.value })} /></label><label><span>Status year</span><input value={String(row.statusYear || row.year || '')} onChange={(event) => patch({ statusYear: event.target.value, year: event.target.value })} /></label><label><span>Badge</span><input value={String(row.badge || row.note || '')} onChange={(event) => patch({ badge: event.target.value, note: event.target.value })} /></label><label><span>Type</span><input value={String(row.type || '')} onChange={(event) => patch({ type: event.target.value })} /></label></div>;
-    if (section === 'Certifications') return <div className="cms-form-grid">{textField('Name', 'name')}{textField('Issuer', 'issuer')}{textField('Year', 'year')}{textField('Credential URL', 'credentialUrl', 'url')}</div>;
-    return <div className="cms-form-grid">{textField('Skill name', 'name')}<label><span>Category</span><input value={String(row.category || 'languages')} onChange={(event) => patch({ category: event.target.value })} /></label><label><span>Years</span><input type="number" min="0" max="50" value={Number(row.years || 0)} onChange={(event) => patch({ years: Number(event.target.value) })} /></label></div>;
+    const textField = (label: string, name: string, type = 'text', required = false) => <Field label={label} required={required}><Input type={type} value={displayText(row[name])} onChange={(event) => patch({ [name]: event.target.value })} /></Field>;
+    const selectField = (label: string, name: string, options: string[]) => <Field label={label}><Select value={displayText(row[name], options[0])} onChange={(event) => patch({ [name]: event.target.value })}>{options.map((option) => <option key={option}>{option}</option>)}</Select></Field>;
+    const longField = (label: string, name: string) => <Field label={label}><Textarea value={displayText(row[name])} onChange={(event) => patch({ [name]: event.target.value })} /></Field>;
+    if (section === 'Stats') return <div className="cms-form-grid">{textField('Label', 'label', 'text', true)}{textField('Value', 'value', 'text', true)}{selectField('Icon', 'icon', ['calendar','folder','cpu','server','award','briefcase','graduation','code','database','globe'])}</div>;
+    if (section === 'Timeline') return <div className="cms-form-grid">{textField('Year', 'year', 'text', true)}{textField('Title', 'title', 'text', true)}{selectField('Type', 'type', ['education','work','promotion','achievement'])}{longField('Description', 'description')}</div>;
+    if (section === 'Tools') return <div className="cms-form-grid">{textField('Name', 'name', 'text', true)}{textField('Category', 'category')}{longField('Description', 'description')}</div>;
+    if (section === 'Workflow') return <div className="cms-form-grid">{textField('Label', 'label', 'text', true)}{longField('Description', 'description')}<TagInput label="Tools" value={Array.isArray(row.tools) ? (row.tools as string[]).map(String) : []} onChange={(tools) => patch({ tools })} /></div>;
+    if (section === 'Terminal') return <div className="cms-form-grid">{textField('Command', 'command', 'text', true)}<Field label="Output lines"><Textarea value={displayTextList(row.output).join('\n')} onChange={(event) => patch({ output: event.target.value.split('\n') })} /><small className="cms-terminal-preview">$ {displayText(row.command)}<br />{displayTextList(row.output).join(' | ')}</small></Field></div>;
+    if (section === 'Contact') return <div className="cms-form-grid">{textField('Label', 'label', 'text', true)}{textField('URL', 'url', 'url', true)}{selectField('Icon', 'icon', ['Mail','Phone','Github','Linkedin','MapPin','ArrowUpRight','Resume'])}</div>;
+    if (section === 'Experience') return <div className="cms-form-grid">{textField('Role', 'role', 'text', true)}{textField('Company', 'company', 'text', true)}{textField('Subsidiary', 'parent')}{textField('Period', 'period', 'text', true)}{textField('Type', 'type')}{textField('Type badge text', 'typeBadge')}<Field label="Highlights"><Textarea value={(row.commits as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ commits: event.target.value.split('\n').filter(Boolean) })} /></Field></div>;
+    if (section === 'Education') return <div className="cms-form-grid">{textField('Qualification', 'degree', 'text', true)}{textField('Institution', 'institution', 'text', true)}{textField('Period', 'period')}{textField('Status label', 'statusLabel')}{textField('Status year', 'statusYear')}{textField('Badge', 'badge')}{textField('Type', 'type')}</div>;
+    if (section === 'Certifications') return <div className="cms-form-grid">{textField('Name', 'name', 'text', true)}{textField('Issuer', 'issuer')}{textField('Year', 'year')}{textField('Credential URL', 'credentialUrl', 'url')}</div>;
+    if (section === 'Skills') return <><div className="cms-form-grid"><Field label="Category title" required><Input value={displayText(row.title)} onChange={(event)=>patch({title:event.target.value})}/></Field><Field label="Icon"><Input value={displayText(row.icon)} onChange={(event)=>patch({icon:event.target.value})}/></Field><Field label="Description" className="cms-wide-field"><Textarea value={displayText(row.description)} onChange={(event)=>patch({description:event.target.value})}/></Field><Field label="Display order"><Input type="number" min="0" value={Number(row.order??0)} onChange={(event)=>patch({order:Number(event.target.value)})}/></Field><Toggle label="Shown on site" checked={row.visible!==false} onChange={(visible)=>patch({visible})}/></div><TagInput label="Core tools" value={displayTextList(row.coreTools)} onChange={(coreTools)=>patch({coreTools})}/><TagInput label="Also explored" value={displayTextList(row.alsoExplored)} onChange={(alsoExplored)=>patch({alsoExplored})}/></>;
+    return <div className="cms-form-grid">{textField('Skill name', 'name', 'text', true)}{textField('Category', 'category')}{textField('Years', 'years', 'number')}</div>;
   }
 
-  const advancedValue = section === 'Contact' ? record.contact : section === 'Terminal' ? record.terminal : record[section.toLowerCase()];
-  const itemLabel = section === 'Stats' ? 'Stat' : section === 'Timeline' ? 'Timeline entry' : section === 'Tools' ? 'Tool' : section === 'Workflow' ? 'Workflow step' : section === 'Terminal' ? 'Command' : section === 'Contact' ? 'Contact link' : section === 'Skills' ? 'Skill' : section === 'Experience' ? 'Experience entry' : section === 'Education' ? 'Education entry' : 'Certification';
+  const advancedValue = section === 'Contact' ? record.contact : section === 'Terminal' ? record.terminal : section === 'Skills' ? record.skillCategories : record[section.toLowerCase()];
+  const itemLabel = section === 'Stats' ? 'Stat' : section === 'Timeline' ? 'Timeline entry' : section === 'Tools' ? 'Tool' : section === 'Workflow' ? 'Workflow step' : section === 'Terminal' ? 'Command' : section === 'Contact' ? 'Contact link' : section === 'Skills' ? 'Toolkit category' : section === 'Experience' ? 'Experience entry' : section === 'Education' ? 'Education entry' : 'Certification';
   const emptyDescriptions: Partial<Record<typeof section, string>> = {
     Stats: 'Stats appear as compact portfolio metrics.',
     Timeline: 'Timeline entries show milestones and career progress.',
@@ -202,16 +238,24 @@ export function RepeatEditor({ draft, update, section }: {
     Education: 'Education entries appear in the learning section.',
     Certifications: 'Certifications appear in your CV and portfolio.',
   };
-  const getSummary = (row: RepeatRow) => String(row.label || row.title || row.name || row.role || row.degree || row.command || row.year || row.issuer || '') || 'Untitled';
+  const getSummary = (row: RepeatRow) => [row.label,row.title,row.name,row.role,row.degree,row.command,row.year,row.issuer].map((value)=>displayText(value)).find(Boolean) || '';
+  const requiredNewFields: Partial<Record<typeof section, Array<{ key: string; label: string; type?: string }>>> = {
+    Stats: [{ key: 'value', label: 'stat value' }],
+    Contact: [{ key: 'url', label: 'contact URL', type: 'url' }],
+    Experience: [{ key: 'company', label: 'company' }, { key: 'period', label: 'period' }],
+    Education: [{ key: 'institution', label: 'institution' }],
+  };
   return (
     <div className="cms-profile-layout">
       <div>
         {!Array.isArray(items) && <p className="cms-warning">Existing data could not be read; safe defaults are shown.</p>}
-        <RepeaterField title={section} items={items} onChange={change} createItem={createItem} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
-        <AdvancedJson title={section} value={advancedValue} onApply={(value) => update({ ...draft, content: { ...draft.content, [section.toLowerCase()]: value } } as PortfolioRelease)} />
+        {section==='Skills'&&<Field label="Toolkit note"><Textarea value={displayText(record.familiarityNote)} onChange={(event)=>update({...draft,content:{...draft.content,familiarityNote:event.target.value} as PortfolioRelease['content']})}/></Field>}
+        {section==='Contact'&&<div className="cms-form cms-contact-copy"><div className="cms-form-grid"><Field label="Heading"><Input value={displayText((record.contact as Record<string,unknown>|undefined)?.title)} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),title:event.target.value}} as PortfolioRelease['content']})}/></Field><Field label="Button text"><Input value={displayText((record.contact as Record<string,unknown>|undefined)?.buttonLabel)} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),buttonLabel:event.target.value}} as PortfolioRelease['content']})}/></Field></div><Field label="Paragraph"><Textarea value={displayText((record.contact as Record<string,unknown>|undefined)?.description)} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),description:event.target.value}} as PortfolioRelease['content']})}/></Field></div>}
+        <RepeaterField title={section} items={items} onChange={change} createItem={createItem} primaryField={{key:section==='Stats'?'label':section==='Timeline'?'title':section==='Tools'?'name':section==='Workflow'?'label':section==='Terminal'?'command':section==='Contact'?'label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'title':'name',label:section==='Stats'?'stat label':section==='Timeline'?'milestone title':section==='Tools'?'tool name':section==='Workflow'?'step label':section==='Terminal'?'command':section==='Contact'?'contact label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'category title':'certification name'}} requiredFields={requiredNewFields[section]} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
+        <AdvancedJson title={section} value={advancedValue} onApply={(value) => section==='Skills' ? (Array.isArray(value)&&change(value as RepeatRow[])) : update({ ...draft, content: { ...draft.content, [section.toLowerCase()]: value } } as PortfolioRelease)} />
       </div>
       <Preview title={`${section} preview`}>
-        {items.slice(0, 6).map((item) => <p key={String(item.id)}><strong>{String(item.label || item.title || item.name || item.role || item.degree || item.command || '')}</strong>{item.description ? ` — ${String(item.description)}` : ''}</p>)}
+        {items.slice(0, 6).map((item) => <p key={displayText(item.id)}><strong>{getSummary(item)}</strong>{displayText(item.description) ? ` — ${displayText(item.description)}` : ''}</p>)}
       </Preview>
     </div>
   );
@@ -229,9 +273,11 @@ function Preview({ title, children }: { title: string; children: ReactNode }) {
 
 export function HeroEditor({ draft, update }: { draft: PortfolioRelease; update: (next: PortfolioRelease) => void }) {
   const record = draft.content as unknown as Record<string, unknown>;
-  const fallback: HeroValue = { eyebrow: '', heading: '', description: '', supporting: '', profileImage: '/images/thinu-profile.png', profileImageAlt: 'Thinu Upadya', layout: 'split' };
-  const parsed = heroSchema.safeParse(record.hero ?? fallback);
+  const fallback = portfolioData.hero as unknown as HeroValue;
+  const heroValue = { ...fallback, ...(record.hero && typeof record.hero === 'object' ? record.hero : {}) } as HeroValue;
+  const parsed = heroSchema.safeParse(heroValue);
   const form = useForm<HeroValue>({ resolver: zodResolver(heroSchema), defaultValues: parsed.success ? parsed.data : fallback, mode: 'onChange' });
+  const [previewOpen, setPreviewOpen] = useState(true);
   useEffect(() => { if (parsed.success) form.reset(parsed.data); }, [JSON.stringify(record.hero)]);
 
   function sync(values: HeroValue) {
@@ -240,32 +286,58 @@ export function HeroEditor({ draft, update }: { draft: PortfolioRelease; update:
 
   const values = form.watch();
   return (
-    <div className="cms-profile-layout">
+    <div className="cms-profile-layout cms-hero-editor-layout">
       <form className="cms-form" onSubmit={(event) => event.preventDefault()} onChange={() => void form.handleSubmit(sync)()}>
         {!parsed.success && <p className="cms-warning">Existing Hero data was malformed; safe defaults are shown.</p>}
         <div className="cms-form-grid">
-          <label><span>Eyebrow <b>*</b></span><input {...form.register('eyebrow')} /><small className="admin-error">{form.formState.errors.eyebrow?.message}</small></label>
-          <label><span>Layout</span><select {...form.register('layout')}><option value="split">Split</option><option value="centered">Centered</option><option value="terminal">Terminal</option><option value="minimal">Minimal</option></select></label>
+          <Field label="Eyebrow" required error={form.formState.errors.eyebrow?.message}><Input {...form.register('eyebrow')} /></Field>
+          <Field label="Layout"><Select {...form.register('layout')}><option value="split">Split</option><option value="centered">Centered</option><option value="terminal">Terminal</option><option value="minimal">Minimal</option></Select></Field>
         </div>
-        <label><span>Heading <b>*</b></span><input {...form.register('heading')} /><small className="admin-error">{form.formState.errors.heading?.message}</small></label>
-        <label><span>Description <b>*</b></span><textarea rows={5} maxLength={2000} {...form.register('description')} /><small className="cms-character-count">{form.watch('description')?.length ?? 0}/2000</small></label>
-        <label><span>Supporting text</span><textarea rows={4} maxLength={2000} {...form.register('supporting')} /><small className="cms-character-count">{form.watch('supporting')?.length ?? 0}/2000</small></label>
+        <Field label="Heading" required helperText="Wrap words to accent in square brackets, for example: Engineering [ideas.] Crafting [experiences.]" error={form.formState.errors.heading?.message}><Input {...form.register('heading')} /></Field>
+        <Field label="Description" required helperText={`${form.watch('description')?.length ?? 0}/2000 characters`}><Textarea maxLength={2000} {...form.register('description')} /></Field>
+        <Field label="Supporting text" helperText={`${form.watch('supporting')?.length ?? 0}/2000 characters`}><Textarea maxLength={2000} {...form.register('supporting')} /></Field>
         <div className="cms-form-grid">
-          <label><span>Primary CTA label</span><input {...form.register('primaryCtaLabel')} /></label>
-          <label><span>Primary CTA link</span><input type="url" {...form.register('primaryCtaLink')} /><small className="admin-error">{form.formState.errors.primaryCtaLink?.message}</small></label>
-          <label><span>Secondary CTA label</span><input {...form.register('secondaryCtaLabel')} /></label>
-          <label><span>Secondary CTA link</span><input type="url" {...form.register('secondaryCtaLink')} /><small className="admin-error">{form.formState.errors.secondaryCtaLink?.message}</small></label>
+          <Field label="Primary CTA label"><Input {...form.register('primaryCtaLabel')} /></Field>
+          <Field label="Primary CTA link" helperText="Use a URL, /path, or #section anchor." error={form.formState.errors.primaryCtaLink?.message}><Input {...form.register('primaryCtaLink')} /></Field>
+          <Field label="Secondary CTA label"><Input {...form.register('secondaryCtaLabel')} /></Field>
+          <Field label="Secondary CTA link" helperText="Use a URL, /path, or #section anchor." error={form.formState.errors.secondaryCtaLink?.message}><Input {...form.register('secondaryCtaLink')} /></Field>
         </div>
+        <div className="cms-form-grid">
+          <Field label="Portrait caption"><Input {...form.register('portraitCaption')} /></Field>
+          <Field label="Floating label (top)"><Input {...form.register('floatingLabelTop')} /></Field>
+          <Field label="Floating label (bottom)"><Input {...form.register('floatingLabelBottom')} /></Field>
+          <Field label="Scroll hint"><Input {...form.register('scrollHintText')} /></Field>
+        </div>
+        <RepeaterField
+          title="Social links"
+          items={(values.socialLinks ?? []).map((link, index) => ({ id: link.id || `hero-social-${index}`, ...link }))}
+          itemLabel="Social link"
+          primaryField={{ key: 'label', label: 'link label' }}
+          requiredFields={[{ key: 'url', label: 'link URL' }]}
+          getSummary={(link) => displayText(link.label)}
+          createItem={(label) => ({ id: `hero-social-${Date.now()}`, label: label || '', url: '', icon: 'ArrowUpRight' })}
+          onChange={(rows) => {
+            const socialLinks = rows.map(({ label, url, icon }) => ({ label: displayText(label), url: displayText(url), icon: displayText(icon) }));
+            form.setValue('socialLinks', socialLinks, { shouldDirty: true, shouldValidate: true });
+            sync({ ...form.getValues(), socialLinks });
+          }}
+          renderItem={(link, _index, patch) => <div className="cms-form-grid"><Field label="Label" required><Input value={displayText(link.label)} onChange={(event) => patch({ label: event.target.value })} /></Field><Field label="URL" required><Input value={displayText(link.url)} onChange={(event) => patch({ url: event.target.value })} /></Field><Field label="Icon"><Input value={displayText(link.icon)} onChange={(event) => patch({ icon: event.target.value })} /></Field></div>}
+        />
         <ImageUpload
           label="Hero image"
           value={form.watch('profileImage')}
           alt={form.watch('profileImageAlt')}
-          onChange={(path) => { form.setValue('profileImage', path, { shouldDirty: true }); sync({ ...form.getValues(), profileImage: path }); }}
-          onAltChange={(alt) => { form.setValue('profileImageAlt', alt, { shouldDirty: true }); sync({ ...form.getValues(), profileImageAlt: alt }); }}
+          altRequired
+          altError={form.formState.errors.profileImageAlt?.message}
+          onChange={(path) => { form.setValue('profileImage', path, { shouldDirty: true, shouldValidate: true }); const next = { ...form.getValues(), profileImage: path }; sync(next); void form.trigger('profileImageAlt'); }}
+          onAltChange={(alt) => { form.setValue('profileImageAlt', alt, { shouldDirty: true, shouldValidate: true }); sync({ ...form.getValues(), profileImageAlt: alt }); }}
         />
         <AdvancedJson title="Hero" value={record.hero ?? fallback} validate={(value) => heroSchema.safeParse(value)} onApply={(value) => { const result = heroSchema.safeParse(value); if (result.success) sync(result.data); }} />
       </form>
-      <Preview title="Hero preview"><span className="cms-preview-eyebrow">{values.eyebrow}</span><h3>{values.heading}</h3><p>{values.description}</p><p>{values.supporting}</p></Preview>
+      <aside className="cms-live-preview cms-hero-real-preview">
+        <div className="cms-preview-header"><h2>Hero preview</h2><button type="button" className="admin-button" onClick={() => setPreviewOpen((open) => !open)}>{previewOpen ? 'Collapse' : 'Expand'}</button></div>
+        {previewOpen && <div className="cms-hero-real-frame"><HeroSection hero={values as unknown as PortfolioRelease['content']['hero']} personal={draft.content.personal} animated={false} /></div>}
+      </aside>
     </div>
   );
 }

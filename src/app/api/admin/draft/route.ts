@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/firebase/auth';
 import { getDraftRelease, saveDraft } from '@/lib/repositories/portfolio.repository';
 import { releaseSchema } from '@/lib/schemas/portfolio.schema';
 import { getFirebaseAdmin } from '@/lib/firebase/admin';
+import { formatValidationIssues } from '@/lib/schemas/validation-issues';
 
 export const runtime = 'nodejs';
 
@@ -24,7 +25,8 @@ export async function PUT(request: Request) {
     try { body = JSON.parse(text); } catch { return NextResponse.json({ error: 'Draft payload is not valid JSON.' }, { status: 400 }); }
     const parsed = releaseSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Draft validation failed.', issues: parsed.error.issues }, { status: 422 });
+      const content = body && typeof body === 'object' ? (body as { content?: unknown }).content : undefined;
+      return NextResponse.json({ error: 'Draft validation failed. Review the listed fields.', failures: formatValidationIssues(parsed.error.issues, content), issues: parsed.error.issues }, { status: 422 });
     }
     await saveDraft(parsed.data as unknown as Parameters<typeof saveDraft>[0], admin.uid);
     await getFirebaseAdmin().db.collection('activity').add({

@@ -9,19 +9,32 @@ import { portfolioData } from '@/lib/data';
 
 const configRef = () => getFirebaseAdmin().db.collection('site_config').doc('active');
 
+function canonicalUrl(value: string) {
+  try { return new URL(value).href.replace(/\/$/, '').toLowerCase(); }
+  catch { return value.trim().toLowerCase(); }
+}
+
 function normalizeProjects(release: PortfolioRelease): PortfolioRelease {
   const content = release.content as unknown as {
     projects: Array<Record<string, unknown>>;
   };
-  content.projects = content.projects.map((project, index) => {
-    const legacyLinks = Array.isArray(project.links)
+  const projects = content.projects.map((project, index) => {
+    const candidates = Array.isArray(project.links)
       ? project.links.map((item) => {
         if (typeof item !== 'string') return item;
         try { return { label: new URL(item).hostname.replace(/^www\./, ''), url: item }; }
         catch { return { label: 'Visit project', url: item }; }
       })
       : [];
-    if (project.link && typeof project.link === 'string') {
+    const seenUrls = new Set<string>();
+    const legacyLinks = candidates.filter((item) => {
+      if (!item || typeof item !== 'object' || !('url' in item) || typeof item.url !== 'string') return true;
+      const key = canonicalUrl(item.url);
+      if (seenUrls.has(key)) return false;
+      seenUrls.add(key);
+      return true;
+    });
+    if (project.link && typeof project.link === 'string' && !seenUrls.has(canonicalUrl(project.link))) {
       legacyLinks.unshift({
         label: typeof project.linkLabel === 'string' ? project.linkLabel : 'Visit project',
         url: project.link,
@@ -41,7 +54,7 @@ function normalizeProjects(release: PortfolioRelease): PortfolioRelease {
       period: typeof project.period === 'string' ? project.period : typeof project.year === 'string' ? project.year : '',
     };
   });
-  return release;
+  return { ...release, content: { ...release.content, projects } as unknown as PortfolioRelease['content'] };
 }
 
 export async function getPublishedRelease(): Promise<PortfolioRelease | null> {

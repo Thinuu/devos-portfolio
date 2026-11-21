@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '@/styles/globals.css';
 import { portfolioData } from '@/lib/data';
+import { getPublishedDesign } from '@/lib/repositories/design.repository';
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://thinu.me').replace(/\/$/, '');
 
@@ -43,13 +44,39 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const design = await getPublishedDesign();
+  const style = {
+    '--bg': design.colors.bg,
+    '--bg-soft': design.colors.bgSoft,
+    '--surface': design.colors.surface,
+    '--surface-raised': design.colors.surfaceRaised,
+    '--border': design.colors.border,
+    '--border-soft': design.colors.borderSoft,
+    '--text': design.colors.text,
+    '--text-soft': design.colors.textSoft,
+    '--muted': design.colors.muted,
+    '--accent': design.colors.accent,
+    '--accent-soft': design.colors.accentSoft,
+    '--container-max': `${design.layout.containerWidth}px`,
+    '--card-radius': `${design.layout.radius}px`,
+  } as React.CSSProperties;
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      data-theme={design.mode}
+      data-motion={design.motion.pack.toLowerCase()}
+      data-layout={design.layout.sectionSpacing}
+      data-card={design.components.cardStyle}
+      data-button={design.components.buttonStyle}
+      data-nav={design.components.navStyle}
+      data-bg={design.background.type}
+      style={style}
+    >
       <body>
         {children}
         <script
