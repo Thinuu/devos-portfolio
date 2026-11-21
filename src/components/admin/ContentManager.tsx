@@ -9,6 +9,7 @@ import { ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, Grip
 import { personalSchema, projectSchema, type PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 import { AboutEditor, HeroEditor, RepeatEditor } from '@/components/admin/SectionEditors';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { Field, Input, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
 import { readJsonResponse } from '@/lib/http/json';
 import RepeaterField from '@/components/admin/RepeaterField';
 import { editorRowsToHighlights, highlightsToEditorRows } from '@/lib/projects/highlights';
@@ -49,12 +50,12 @@ function PersonalEditor({ draft, update }: { draft: PortfolioRelease; update: (n
   ];
   return <form className="cms-form" onSubmit={(event) => event.preventDefault()} onChange={() => void form.handleSubmit(syncPersonal)()}>
     <div className="cms-form-grid">
-      {fields.map(([name,label,type]) => <label key={name}><span>{label} <b aria-hidden="true">*</b></span><input type={type} {...form.register(name)} /><small className="admin-error">{form.formState.errors[name]?.message as string}</small></label>)}
+      {fields.map(([name,label,type]) => <Field key={name} label={label} required error={form.formState.errors[name]?.message as string | undefined}><Input type={type} {...form.register(name)} /></Field>)}
     </div>
-    <label><span>Tagline <b>*</b></span><textarea rows={3} maxLength={500} {...form.register('tagline')} /><small className="cms-character-count">{form.watch('tagline')?.length ?? 0}/500</small><small className="admin-error">{form.formState.errors.tagline?.message as string}</small></label>
-    <label><span>Bio <b>*</b></span><textarea rows={7} maxLength={4000} {...form.register('bio')} /><small className="cms-character-count">{form.watch('bio')?.length ?? 0}/4000</small><small className="admin-error">{form.formState.errors.bio?.message as string}</small></label>
+    <Field label="Tagline" required helperText={`${form.watch('tagline')?.length ?? 0}/500 characters`} error={form.formState.errors.tagline?.message as string | undefined}><Textarea maxLength={500} {...form.register('tagline')} /></Field>
+    <Field label="Bio" required helperText={`${form.watch('bio')?.length ?? 0}/4000 characters`} error={form.formState.errors.bio?.message as string | undefined}><Textarea maxLength={4000} {...form.register('bio')} /></Field>
     <div className="cms-inline-options">
-      <label className="cms-toggle"><input type="checkbox" {...form.register('available')} /> Available for opportunities</label>
+      <Toggle label="Available for opportunities" checked={form.watch('available')} onChange={(available) => { form.setValue('available', available, { shouldDirty: true }); void form.handleSubmit(syncPersonal)(); }} />
       <label><span>Response time</span><input {...form.register('responseTime')} /><small className="admin-error">{form.formState.errors.responseTime?.message as string}</small></label>
     </div>
     <ImageUpload
@@ -75,7 +76,6 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
   const [selected, setSelected] = useState(0);
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [stackInput, setStackInput] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const projects = draft.content.projects;
@@ -121,29 +121,6 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
   const types = Array.from(new Set(projects.map((project) => project.type).filter(Boolean)));
   const skillSuggestions = Array.from(new Set(Object.values(draft.content.skills).flatMap((skills) => skills.map((skill) => skill.name))));
   const highlightRows = highlightsToEditorRows(form.watch('highlights'));
-
-  function addStackTag(value: string) {
-    const tag = value.trim();
-    if (!tag) return;
-    const next = Array.from(new Set([...(form.watch('stack') ?? []), tag]));
-    form.setValue('stack', next, { shouldDirty: true, shouldValidate: true });
-    syncProject({ ...form.getValues(), stack: next });
-    setStackInput('');
-  }
-  function removeStackTag(index: number) {
-    const next = [...(form.watch('stack') ?? [])];
-    next.splice(index, 1);
-    form.setValue('stack', next, { shouldDirty: true, shouldValidate: true });
-    syncProject({ ...form.getValues(), stack: next });
-  }
-  function reorderStackTag(from: number, to: number) {
-    const next = [...(form.watch('stack') ?? [])];
-    if (to < 0 || to >= next.length) return;
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    form.setValue('stack', next, { shouldDirty: true, shouldValidate: true });
-    syncProject({ ...form.getValues(), stack: next });
-  }
 
   if (!projects.length) return <div className="admin-empty"><button className="admin-button primary" onClick={add}><Plus size={15}/> Add first project</button></div>;
   const project = projects[selected];
@@ -195,21 +172,21 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
     {project && <form className="cms-project-form cms-form" onSubmit={(event)=>event.preventDefault()} onChange={()=>void form.handleSubmit(syncProject)()}>
       <div className="cms-form-actions"><button type="button" className="admin-button" onClick={()=>duplicate(selected)}><Copy size={15}/> Duplicate</button><button type="button" className="admin-button" onClick={()=>move(selected,-1)}><ArrowUp size={15}/></button><button type="button" className="admin-button" onClick={()=>move(selected,1)}><ArrowDown size={15}/></button><button type="button" className="admin-button" onClick={()=>remove(selected)}><Trash2 size={15}/> Delete</button></div>
       <details className="cms-form-section" open><summary>Basics</summary><div className="cms-form-grid">
-        <label><span>Title <b>*</b></span><input {...form.register('title')} onChange={(event)=>{const title=event.target.value;form.setValue('title',title,{shouldDirty:true,shouldValidate:true});if(!slugEdited){const id=slugify(title);form.setValue('id',id,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),title,id})}else syncProject({...form.getValues(),title})}}/><small className="admin-error">{form.formState.errors.title?.message as string}</small></label>
-        <label><span>Slug / URL <b>*</b></span><input value={slug} onChange={(event)=>{setSlugEdited(true);const value=slugify(event.target.value);form.setValue('id',value,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),id:value})}}/><small>Changing this changes /projects/{slug}</small>{duplicateIds&&<small className="admin-error">Slug must be unique.</small>}<small className="admin-error">{form.formState.errors.id?.message as string}</small></label>
-        <label><span>Status</span><input list="project-statuses" {...form.register('status')}/><datalist id="project-statuses">{statuses.map((status)=><option key={status} value={status}/>)}</datalist></label>
-        <label><span>Year</span><input {...form.register('year')}/></label>
-        <label><span>Type</span><input list="project-types" {...form.register('type')}/><datalist id="project-types">{types.map((type)=><option key={type} value={type}/>)}</datalist></label>
-        <label><span>Category</span><input list="project-categories" {...form.register('category')}/><datalist id="project-categories">{categories.map((category)=><option key={category} value={category}/>)}</datalist></label>
-        <label><span>Additional categories</span><input value={form.watch('additionalCategories')?.join(', ') ?? ''} onChange={(event)=>{const additionalCategories=event.target.value.split(',').map((value)=>value.trim()).filter(Boolean);form.setValue('additionalCategories',additionalCategories,{shouldDirty:true});syncProject({...form.getValues(),additionalCategories})}}/></label>
-        <label><span>Monogram</span><input maxLength={12} {...form.register('monogram')} /></label>
-        <label><span>Period</span><input maxLength={40} {...form.register('period')} /></label>
-        <label className="cms-toggle"><input type="checkbox" {...form.register('featured')} /> Featured project</label>
-        <label className="cms-toggle"><input type="checkbox" {...form.register('visible')} /> Visible on portfolio</label>
-        <label><span>Artwork caption</span><input maxLength={200} {...form.register('artworkCaption')}/></label>
+        <Field label="Title" required error={form.formState.errors.title?.message as string | undefined}><Input {...form.register('title')} onChange={(event)=>{const title=event.target.value;form.setValue('title',title,{shouldDirty:true,shouldValidate:true});if(!slugEdited){const id=slugify(title);form.setValue('id',id,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),title,id})}else syncProject({...form.getValues(),title})}}/></Field>
+        <Field label="Slug / URL" required helperText={`Changing this changes /projects/${slug}`} error={duplicateIds ? 'Slug must be unique.' : form.formState.errors.id?.message as string | undefined}><Input value={slug} onChange={(event)=>{setSlugEdited(true);const value=slugify(event.target.value);form.setValue('id',value,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),id:value})}}/></Field>
+        <Field label="Status"><Input list="project-statuses" {...form.register('status')}/><datalist id="project-statuses">{statuses.map((status)=><option key={status} value={status}/>)}</datalist></Field>
+        <Field label="Year"><Input {...form.register('year')}/></Field>
+        <Field label="Type"><Input list="project-types" {...form.register('type')}/><datalist id="project-types">{types.map((type)=><option key={type} value={type}/>)}</datalist></Field>
+        <Field label="Category"><Input list="project-categories" {...form.register('category')}/><datalist id="project-categories">{categories.map((category)=><option key={category} value={category}/>)}</datalist></Field>
+        <TagInput label="Additional categories" value={form.watch('additionalCategories') ?? []} onChange={(additionalCategories)=>{form.setValue('additionalCategories',additionalCategories,{shouldDirty:true});syncProject({...form.getValues(),additionalCategories})}} />
+        <Field label="Monogram"><Input maxLength={12} {...form.register('monogram')} /></Field>
+        <Field label="Period"><Input maxLength={40} {...form.register('period')} /></Field>
+        <Toggle label="Featured project" checked={form.watch('featured') === true} onChange={(featured)=>{form.setValue('featured',featured,{shouldDirty:true});syncProject({...form.getValues(),featured})}} />
+        <Toggle label="Visible on portfolio" checked={form.watch('visible') !== false} onChange={(visible)=>{form.setValue('visible',visible,{shouldDirty:true});syncProject({...form.getValues(),visible})}} />
+        <Field label="Artwork caption"><Input maxLength={200} {...form.register('artworkCaption')}/></Field>
       </div></details>
-      <details className="cms-form-section"><summary>Descriptions</summary><div className="cms-form-grid"><label><span>Short description</span><textarea rows={4} maxLength={500} {...form.register('shortDesc')}/><small className="cms-character-count">{form.watch('shortDesc')?.length ?? 0}/500</small></label><label><span>Full description</span><textarea rows={7} maxLength={5000} {...form.register('fullDesc')}/><small className="cms-character-count">{form.watch('fullDesc')?.length ?? 0}/5000</small></label></div></details>
-      <details className="cms-form-section"><summary>Details</summary><div className="cms-form-grid">{(['employer','role','challenge','solution','architecture','scopeNotice','collaborationNote','projectStatusNote','techStackNote'] as const).map((name)=><label key={name}><span>{name.replace(/([A-Z])/g,' $1').replace(/^./,(letter)=>letter.toUpperCase())}</span><textarea rows={4} {...form.register(name)}/></label>)}</div></details>
+      <details className="cms-form-section"><summary>Descriptions</summary><div className="cms-form-grid"><Field label="Short description" helperText={`${form.watch('shortDesc')?.length ?? 0}/500 characters`}><Textarea maxLength={500} {...form.register('shortDesc')}/></Field><Field label="Full description" helperText={`${form.watch('fullDesc')?.length ?? 0}/5000 characters`}><Textarea maxLength={5000} {...form.register('fullDesc')}/></Field></div></details>
+      <details className="cms-form-section"><summary>Details</summary><div className="cms-form-grid">{(['employer','role','challenge','solution','architecture','scopeNotice','collaborationNote','projectStatusNote','techStackNote'] as const).map((name)=><Field key={name} label={name.replace(/([A-Z])/g,' $1').replace(/^./,(letter)=>letter.toUpperCase())}><Textarea {...form.register(name)}/></Field>)}</div></details>
       <details className="cms-form-section"><summary>Links</summary>
         <RepeaterField
           title="Project links"
@@ -232,9 +209,9 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
           }}
           renderItem={(row, _index, patch) => (
             <div className="cms-form-grid">
-              <label><span>Label <b>*</b></span><input value={String(row.label || '')} onChange={(event) => patch({ label: event.target.value })} /></label>
-              <label><span>URL <b>*</b></span><input type="url" value={String(row.url || '')} onChange={(event) => patch({ url: event.target.value })} /></label>
-              <label><span>Icon</span><input value={String(row.icon || 'ArrowUpRight')} onChange={(event) => patch({ icon: event.target.value })} /></label>
+              <Field label="Label" required><Input value={String(row.label || '')} onChange={(event) => patch({ label: event.target.value })} /></Field>
+              <Field label="URL" required><Input type="url" value={String(row.url || '')} onChange={(event) => patch({ url: event.target.value })} /></Field>
+              <Field label="Icon"><Input value={String(row.icon || 'ArrowUpRight')} onChange={(event) => patch({ icon: event.target.value })} /></Field>
             </div>
           )}
         />
@@ -250,10 +227,10 @@ function ProjectsEditor({ draft, update }: { draft: PortfolioRelease; update: (n
         getSummary={(row)=>String(row.label||'')}
         createItem={()=>({id:`step-${Date.now()}`,label:'',description:''})}
         onChange={(rows)=>{const workflow=rows.map(({id,label,description})=>({id:String(id),label:String(label||''),description:String(description||'')}));form.setValue('workflow',workflow,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),workflow:workflow as ProjectInput['workflow']})}}
-        renderItem={(row,_index,patch)=><div className="cms-form-grid"><label><span>Step label <b>*</b></span><input value={String(row.label||'')} onChange={(event)=>patch({label:event.target.value})}/></label><label><span>Description</span><textarea rows={3} value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></label></div>}
+        renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Step label" required><Input value={String(row.label||'')} onChange={(event)=>patch({label:event.target.value})}/></Field><Field label="Description"><Textarea value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></Field></div>}
       /></details>
-      <details className="cms-form-section" open><summary>Stack</summary><div className="cms-tag-input"><div className="cms-tags">{(form.watch('stack') ?? []).map((tag,index)=><span className="cms-tag" draggable key={tag} onDragStart={(event)=>event.dataTransfer.setData('text/plain',String(index))} onDragOver={(event)=>event.preventDefault()} onDrop={(event)=>{event.preventDefault();reorderStackTag(Number(event.dataTransfer.getData('text/plain')),index)}}>{tag}<button type="button" aria-label={`Remove ${tag}`} onClick={()=>removeStackTag(index)}>×</button></span>)}</div><input list="stack-suggestions" value={stackInput} placeholder="Type a technology and press Enter" onChange={(event)=>setStackInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'||event.key===','){event.preventDefault();addStackTag(stackInput)}}}/><datalist id="stack-suggestions">{skillSuggestions.map((skill)=><option key={skill} value={skill}/>)}</datalist></div></details>
-      <details className="cms-form-section" open><summary>Highlights</summary><RepeaterField title="Project highlights" items={highlightRows} itemLabel="Highlight" emptyTitle="No highlights yet" emptyDescription="Highlights summarize the project's key outcomes." getSummary={(row)=>String(row.text||'')||'Untitled highlight'} createItem={()=>({id:`highlight-${Date.now()}`,text:'',icon:'check'})} onChange={(rows)=>{const highlights=editorRowsToHighlights(rows.map((row)=>({id:String(row.id),text:String(row.text??''),icon:String(row.icon||'check')})));form.setValue('highlights',highlights as unknown as ProjectInput['highlights'],{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),highlights:highlights as unknown as ProjectInput['highlights']})}} renderItem={(row,_index,patch)=><div className="cms-form-grid"><label><span>Highlight text</span><textarea rows={3} value={String(row.text??'')} onChange={(event)=>patch({text:event.target.value})}/></label><label><span>Icon</span><input value={String(row.icon||'check')} onChange={(event)=>patch({icon:event.target.value})}/></label></div>}/></details>
+      <details className="cms-form-section" open><summary>Stack</summary><TagInput label="Stack" value={form.watch('stack') ?? []} onChange={(stack)=>{form.setValue('stack',stack,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),stack})}} suggestions={skillSuggestions} placeholder="Type a technology and press Enter" /></details>
+      <details className="cms-form-section" open><summary>Highlights</summary><RepeaterField title="Project highlights" items={highlightRows} itemLabel="Highlight" emptyTitle="No highlights yet" emptyDescription="Highlights summarize the project's key outcomes." getSummary={(row)=>String(row.text||'')||'Untitled highlight'} createItem={()=>({id:`highlight-${Date.now()}`,text:'',icon:'check'})} onChange={(rows)=>{const highlights=editorRowsToHighlights(rows.map((row)=>({id:String(row.id),text:String(row.text??''),icon:String(row.icon||'check')})));form.setValue('highlights',highlights as unknown as ProjectInput['highlights'],{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),highlights:highlights as unknown as ProjectInput['highlights']})}} renderItem={(row,_index,patch)=><div className="cms-form-grid"><Field label="Highlight text"><Textarea value={String(row.text??'')} onChange={(event)=>patch({text:event.target.value})}/></Field><Field label="Icon"><Input value={String(row.icon||'check')} onChange={(event)=>patch({icon:event.target.value})}/></Field></div>}/></details>
       <details className="cms-form-section"><summary>Media</summary>
         <ImageUpload label="Project thumbnail" value={form.watch('thumbnail')} alt={form.watch('thumbnailAlt')} fallback="" neutralPlaceholder onChange={(path)=>{form.setValue('thumbnail',path,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),thumbnail:path})}} onAltChange={(alt)=>{form.setValue('thumbnailAlt',alt,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),thumbnailAlt:alt})}}/>
         <ImageUpload label="Case-study cover" value={form.watch('coverImage')} alt={form.watch('coverImageAlt')} fallback="" neutralPlaceholder onChange={(path)=>{form.setValue('coverImage',path,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),coverImage:path})}} onAltChange={(alt)=>{form.setValue('coverImageAlt',alt,{shouldDirty:true,shouldValidate:true});syncProject({...form.getValues(),coverImageAlt:alt})}}/>

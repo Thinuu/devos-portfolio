@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
+import { Input, Toggle } from '@/components/admin/AdminFields';
 
 export type RepeaterItem = { id: string; hidden?: boolean };
 
@@ -61,7 +62,7 @@ export default function RepeaterField<T extends RepeaterItem>({
     <section className="cms-repeater">
       <div className="cms-repeater-heading">
         <h2>{title}</h2>
-        <div className="cms-repeater-add">{primaryField&&<input aria-label={`New ${primaryField.label}`} value={newPrimaryValue} placeholder={`Enter ${primaryField.label.toLowerCase()}`} onChange={(event)=>setNewPrimaryValue(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'){event.preventDefault();addItem()}}}/>}<button type="button" className="admin-button" disabled={Boolean(primaryField&&!newPrimaryValue.trim())} onClick={addItem}><Plus size={15} /> Add item</button></div>
+        <div className="cms-repeater-add">{primaryField&&<Input aria-label={`New ${primaryField.label}`} value={newPrimaryValue} placeholder={`Enter ${primaryField.label.toLowerCase()}`} onChange={(event)=>setNewPrimaryValue(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'){event.preventDefault();addItem()}}}/>}<button type="button" className="admin-button" disabled={Boolean(primaryField&&!newPrimaryValue.trim())} onClick={addItem}><Plus size={15} /> Add item</button></div>
       </div>
       {items.length === 0 ? (
         <div className="cms-repeater-empty">
@@ -78,7 +79,7 @@ export default function RepeaterField<T extends RepeaterItem>({
                 {itemLabel} {index + 1}{getSummary ? ` — ${getSummary(item, index)}` : ''}
                 {open[item.id] === true ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
-              {showVisibility && <label className="cms-visible-toggle"><input type="checkbox" checked={item.hidden !== true} onChange={(event) => onChange(items.map((row, rowIndex) => rowIndex === index ? { ...row, hidden: !event.target.checked } : row))} /> Visible</label>}
+              {showVisibility && <Toggle className="cms-visible-toggle" label="Visible" checked={item.hidden !== true} onChange={(visible) => onChange(items.map((row, rowIndex) => rowIndex === index ? { ...row, hidden: !visible } : row))} />}
               <button type="button" className="admin-button" title="Move up" aria-label={`Move item ${index + 1} up`} onClick={() => move(index, -1)}><ChevronUp size={14} /></button>
               <button type="button" className="admin-button" title="Move down" aria-label={`Move item ${index + 1} down`} onClick={() => move(index, 1)}><ChevronDown size={14} /></button>
               <button type="button" className="admin-button" title="Duplicate" aria-label={`Duplicate item ${index + 1}`} onClick={() => onChange([...items.slice(0, index + 1), { ...item, id: `${item.id}-copy-${Date.now()}` } as T, ...items.slice(index + 1)])}><Copy size={14} /></button>

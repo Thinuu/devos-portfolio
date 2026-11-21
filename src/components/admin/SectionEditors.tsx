@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import RepeaterField, { type RepeaterItem } from '@/components/admin/RepeaterField';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { Field, Input, Select, TagInput, Textarea, Toggle } from '@/components/admin/AdminFields';
 import type { PortfolioRelease } from '@/lib/schemas/portfolio.schema';
 import { portfolioData } from '@/lib/data';
 import { deriveFlatSkills } from '@/lib/projects/toolkit';
@@ -61,16 +62,6 @@ function AdvancedJson({ value, onApply, title, validate }: { value: unknown; onA
 
 type RepeatRow = RepeaterItem & Record<string, unknown>;
 
-function TagInput({ label, value, onChange }: { label: string; value: string[]; onChange: (next: string[]) => void }) {
-  const [input, setInput] = useState('');
-  function addTag() {
-    const tag=input.trim();
-    if(!tag||value.includes(tag))return;
-    onChange([...value,tag]);setInput('');
-  }
-  return <div className="cms-tag-editor"><span>{label}</span><div className="cms-tags">{value.map((tag,index)=><span className="cms-tag" key={`${tag}-${index}`}>{tag}<button type="button" aria-label={`Remove ${tag}`} onClick={()=>onChange(value.filter((_,i)=>i!==index))}>×</button></span>)}</div><input value={input} placeholder={`Add ${label.toLowerCase()} and press Enter`} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'){event.preventDefault();addTag()}}}/><small>Press Enter after each tool.</small></div>;
-}
-
 export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update: (next: PortfolioRelease) => void }) {
   const record = draft.content as unknown as Record<string, unknown>;
   const value = (record.about as {
@@ -91,8 +82,8 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
     <div className="cms-profile-layout">
       <div className="cms-form">
         {!record.about && <p className="cms-warning">Existing About data was missing; safe defaults are shown.</p>}
-        <label><span>Heading <b>*</b></span><input value={value.title || ''} maxLength={200} onChange={(event) => patchAbout({ title: event.target.value })} /></label>
-        <label><span>Intro line</span><input value={value.intro || ''} maxLength={1000} onChange={(event) => patchAbout({ intro: event.target.value })} /></label>
+        <Field label="Heading" required><Input value={value.title || ''} maxLength={200} onChange={(event) => patchAbout({ title: event.target.value })} /></Field>
+        <Field label="Intro line"><Input value={value.intro || ''} maxLength={1000} onChange={(event) => patchAbout({ intro: event.target.value })} /></Field>
         <RepeaterField
           title="Paragraphs"
           items={paragraphs.map((text, index) => ({ id: `paragraph-${index}`, text }))}
@@ -102,7 +93,7 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
           emptyTitle="No paragraphs yet"
           emptyDescription="Paragraphs form the main About text. Add one or more short sections."
           getSummary={(row) => String(row.text || '').slice(0, 48) || 'Untitled paragraph'}
-          renderItem={(row, _index, patch) => <label><span>Paragraph</span><textarea rows={4} maxLength={2000} value={String(row.text ?? '')} onChange={(event) => patch({ text: event.target.value })} /><small className="cms-character-count">{String(row.text ?? '').length}/2000</small></label>}
+          renderItem={(row, _index, patch) => <Field label="Paragraph" helperText={`${String(row.text ?? '').length}/2000 characters`}><Textarea maxLength={2000} value={String(row.text ?? '')} onChange={(event) => patch({ text: event.target.value })} /></Field>}
         />
         <RepeaterField
           title="Highlights"
@@ -113,7 +104,7 @@ export function AboutEditor({ draft, update }: { draft: PortfolioRelease; update
           emptyTitle="No highlights yet"
           emptyDescription="Highlights appear as short bullet points beside your About text."
           getSummary={(row) => String(row.title || row.description || '') || 'Untitled highlight'}
-          renderItem={(row, _index, patch) => <div className="cms-form-grid"><label><span>Title <b>*</b></span><input value={String(row.title ?? '')} onChange={(event) => patch({ title: event.target.value })} /></label><label><span>Description</span><textarea rows={3} value={String(row.description ?? '')} onChange={(event) => patch({ description: event.target.value })} /></label></div>}
+          renderItem={(row, _index, patch) => <div className="cms-form-grid"><Field label="Title" required><Input value={String(row.title ?? '')} onChange={(event) => patch({ title: event.target.value })} /></Field><Field label="Description"><Textarea value={String(row.description ?? '')} onChange={(event) => patch({ description: event.target.value })} /></Field></div>}
         />
         <ImageUpload
           label="Portrait"
@@ -184,20 +175,20 @@ export function RepeatEditor({ draft, update, section }: {
   }
 
   function renderItem(row: RepeatRow, _index: number, patch: (value: Partial<RepeatRow>) => void) {
-    const textField = (label: string, name: string, type = 'text') => (
-      <label><span>{label} <b>*</b></span><input type={type} value={String(row[name] ?? '')} onChange={(event) => patch({ [name]: event.target.value })} /></label>
-    );
-    if (section === 'Stats') return <div className="cms-form-grid">{textField('Label', 'label')}{textField('Value', 'value')}<label><span>Icon</span><select value={String(row.icon || 'calendar')} onChange={(event) => patch({ icon: event.target.value })}>{['calendar','folder','cpu','server','award','briefcase','graduation','code','database','globe'].map((icon) => <option key={icon}>{icon}</option>)}</select></label></div>;
-    if (section === 'Timeline') return <div className="cms-form-grid">{textField('Year', 'year')}{textField('Title', 'title')}<label><span>Type</span><select value={String(row.type || 'education')} onChange={(event) => patch({ type: event.target.value })}>{['education','work','promotion','achievement'].map((type) => <option key={type}>{type}</option>)}</select></label><label><span>Description</span><textarea rows={4} value={String(row.description || '')} onChange={(event) => patch({ description: event.target.value })} /></label></div>;
-    if (section === 'Tools') return <div className="cms-form-grid">{textField('Name', 'name')}<label><span>Category</span><input value={String(row.category || '')} onChange={(event) => patch({ category: event.target.value })} /></label><label><span>Description</span><textarea rows={3} value={String(row.description || '')} onChange={(event) => patch({ description: event.target.value })} /></label></div>;
-    if (section === 'Workflow') return <div className="cms-form-grid">{textField('Label', 'label')}<label><span>Description</span><textarea rows={3} value={String(row.description || '')} onChange={(event) => patch({ description: event.target.value })} /></label><label><span>Tools (comma separated)</span><input value={(row.tools as string[] | undefined)?.join(', ') || ''} onChange={(event) => patch({ tools: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) })} /></label></div>;
-    if (section === 'Terminal') return <div className="cms-form-grid">{textField('Command', 'command')}<label><span>Output lines</span><textarea rows={6} value={(row.output as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ output: event.target.value.split('\n') })} /><small className="cms-terminal-preview">$ {String(row.command || '')}<br />{(row.output as string[] | undefined)?.join(' · ')}</small></label></div>;
-    if (section === 'Contact') return <div className="cms-form-grid">{textField('Label', 'label')}{textField('URL', 'url', 'url')}<label><span>Icon</span><select value={String(row.icon || 'Mail')} onChange={(event) => patch({ icon: event.target.value })}>{['Mail','Phone','Github','Linkedin','MapPin','ArrowUpRight','Resume'].map((icon) => <option key={icon}>{icon}</option>)}</select></label></div>;
-    if (section === 'Experience') return <div className="cms-form-grid">{textField('Role', 'role')}{textField('Company', 'company')}{textField('Subsidiary', 'parent')}{textField('Period', 'period')}<label><span>Type</span><input value={String(row.type || '')} onChange={(event) => patch({ type: event.target.value })} /></label><label><span>Type badge text</span><input value={String(row.typeBadge || '')} onChange={(event) => patch({ typeBadge: event.target.value })} /></label><label><span>Commits (one per line)</span><textarea rows={6} value={(row.commits as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ commits: event.target.value.split('\n').filter(Boolean) })} /></label></div>;
-    if (section === 'Education') return <div className="cms-form-grid">{textField('Degree', 'degree')}{textField('Institution', 'institution')}{textField('Period', 'period')}<label><span>Status label</span><input value={String(row.statusLabel || '')} onChange={(event) => patch({ statusLabel: event.target.value })} /></label><label><span>Status year</span><input value={String(row.statusYear || row.year || '')} onChange={(event) => patch({ statusYear: event.target.value, year: event.target.value })} /></label><label><span>Badge</span><input value={String(row.badge || row.note || '')} onChange={(event) => patch({ badge: event.target.value, note: event.target.value })} /></label><label><span>Type</span><input value={String(row.type || '')} onChange={(event) => patch({ type: event.target.value })} /></label></div>;
-    if (section === 'Certifications') return <div className="cms-form-grid">{textField('Name', 'name')}<label><span>Issuer</span><input value={String(row.issuer||'')} onChange={(event)=>patch({issuer:event.target.value})}/></label><label><span>Year</span><input value={String(row.year||'')} onChange={(event)=>patch({year:event.target.value})}/></label><label><span>Credential URL</span><input type="url" value={String(row.credentialUrl||'')} onChange={(event)=>patch({credentialUrl:event.target.value})}/></label></div>;
-    if (section === 'Skills') return <><div className="cms-form-grid"><label><span>Category title <b>*</b></span><input value={String(row.title||'')} onChange={(event)=>patch({title:event.target.value})}/></label><label><span>Icon</span><input value={String(row.icon||'')} onChange={(event)=>patch({icon:event.target.value})}/></label><label className="cms-wide-field"><span>Description</span><textarea rows={3} value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></label><label><span>Display order</span><input type="number" min="0" value={Number(row.order??0)} onChange={(event)=>patch({order:Number(event.target.value)})}/></label><label className="cms-checkbox-field"><input type="checkbox" checked={row.visible!==false} onChange={(event)=>patch({visible:event.target.checked})}/> Shown on site</label></div><TagInput label="Core tools" value={Array.isArray(row.coreTools)?row.coreTools.map(String):[]} onChange={(coreTools)=>patch({coreTools})}/><TagInput label="Also explored" value={Array.isArray(row.alsoExplored)?row.alsoExplored.map(String):[]} onChange={(alsoExplored)=>patch({alsoExplored})}/></>;
-    return <div className="cms-form-grid">{textField('Skill name', 'name')}<label><span>Category</span><input value={String(row.category || 'languages')} onChange={(event) => patch({ category: event.target.value })} /></label><label><span>Years</span><input type="number" min="0" max="50" value={Number(row.years || 0)} onChange={(event) => patch({ years: Number(event.target.value) })} /></label></div>;
+    const textField = (label: string, name: string, type = 'text', required = false) => <Field label={label} required={required}><Input type={type} value={String(row[name] ?? '')} onChange={(event) => patch({ [name]: event.target.value })} /></Field>;
+    const selectField = (label: string, name: string, options: string[]) => <Field label={label}><Select value={String(row[name] || options[0])} onChange={(event) => patch({ [name]: event.target.value })}>{options.map((option) => <option key={option}>{option}</option>)}</Select></Field>;
+    const longField = (label: string, name: string) => <Field label={label}><Textarea value={String(row[name] || '')} onChange={(event) => patch({ [name]: event.target.value })} /></Field>;
+    if (section === 'Stats') return <div className="cms-form-grid">{textField('Label', 'label', 'text', true)}{textField('Value', 'value', 'text', true)}{selectField('Icon', 'icon', ['calendar','folder','cpu','server','award','briefcase','graduation','code','database','globe'])}</div>;
+    if (section === 'Timeline') return <div className="cms-form-grid">{textField('Year', 'year', 'text', true)}{textField('Title', 'title', 'text', true)}{selectField('Type', 'type', ['education','work','promotion','achievement'])}{longField('Description', 'description')}</div>;
+    if (section === 'Tools') return <div className="cms-form-grid">{textField('Name', 'name', 'text', true)}{textField('Category', 'category')}{longField('Description', 'description')}</div>;
+    if (section === 'Workflow') return <div className="cms-form-grid">{textField('Label', 'label', 'text', true)}{longField('Description', 'description')}<TagInput label="Tools" value={Array.isArray(row.tools) ? (row.tools as string[]).map(String) : []} onChange={(tools) => patch({ tools })} /></div>;
+    if (section === 'Terminal') return <div className="cms-form-grid">{textField('Command', 'command', 'text', true)}<Field label="Output lines"><Textarea value={(row.output as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ output: event.target.value.split('\n') })} /><small className="cms-terminal-preview">$ {String(row.command || '')}<br />{(row.output as string[] | undefined)?.join(' | ')}</small></Field></div>;
+    if (section === 'Contact') return <div className="cms-form-grid">{textField('Label', 'label', 'text', true)}{textField('URL', 'url', 'url', true)}{selectField('Icon', 'icon', ['Mail','Phone','Github','Linkedin','MapPin','ArrowUpRight','Resume'])}</div>;
+    if (section === 'Experience') return <div className="cms-form-grid">{textField('Role', 'role', 'text', true)}{textField('Company', 'company', 'text', true)}{textField('Subsidiary', 'parent')}{textField('Period', 'period', 'text', true)}{textField('Type', 'type')}{textField('Type badge text', 'typeBadge')}<Field label="Highlights"><Textarea value={(row.commits as string[] | undefined)?.join('\n') || ''} onChange={(event) => patch({ commits: event.target.value.split('\n').filter(Boolean) })} /></Field></div>;
+    if (section === 'Education') return <div className="cms-form-grid">{textField('Qualification', 'degree', 'text', true)}{textField('Institution', 'institution', 'text', true)}{textField('Period', 'period')}{textField('Status label', 'statusLabel')}{textField('Status year', 'statusYear')}{textField('Badge', 'badge')}{textField('Type', 'type')}</div>;
+    if (section === 'Certifications') return <div className="cms-form-grid">{textField('Name', 'name', 'text', true)}{textField('Issuer', 'issuer')}{textField('Year', 'year')}{textField('Credential URL', 'credentialUrl', 'url')}</div>;
+    if (section === 'Skills') return <><div className="cms-form-grid"><Field label="Category title" required><Input value={String(row.title||'')} onChange={(event)=>patch({title:event.target.value})}/></Field><Field label="Icon"><Input value={String(row.icon||'')} onChange={(event)=>patch({icon:event.target.value})}/></Field><Field label="Description" className="cms-wide-field"><Textarea value={String(row.description||'')} onChange={(event)=>patch({description:event.target.value})}/></Field><Field label="Display order"><Input type="number" min="0" value={Number(row.order??0)} onChange={(event)=>patch({order:Number(event.target.value)})}/></Field><Toggle label="Shown on site" checked={row.visible!==false} onChange={(visible)=>patch({visible})}/></div><TagInput label="Core tools" value={Array.isArray(row.coreTools)?row.coreTools.map(String):[]} onChange={(coreTools)=>patch({coreTools})}/><TagInput label="Also explored" value={Array.isArray(row.alsoExplored)?row.alsoExplored.map(String):[]} onChange={(alsoExplored)=>patch({alsoExplored})}/></>;
+    return <div className="cms-form-grid">{textField('Skill name', 'name', 'text', true)}{textField('Category', 'category')}{textField('Years', 'years', 'number')}</div>;
   }
 
   const advancedValue = section === 'Contact' ? record.contact : section === 'Terminal' ? record.terminal : section === 'Skills' ? record.skillCategories : record[section.toLowerCase()];
@@ -219,8 +210,8 @@ export function RepeatEditor({ draft, update, section }: {
     <div className="cms-profile-layout">
       <div>
         {!Array.isArray(items) && <p className="cms-warning">Existing data could not be read; safe defaults are shown.</p>}
-        {section==='Skills'&&<label className="cms-toolkit-note"><span>Toolkit note</span><textarea rows={2} value={String(record.familiarityNote||'')} onChange={(event)=>update({...draft,content:{...draft.content,familiarityNote:event.target.value} as PortfolioRelease['content']})}/></label>}
-        {section==='Contact'&&<div className="cms-form cms-contact-copy"><div className="cms-form-grid"><label><span>Heading</span><input value={String((record.contact as Record<string,unknown>|undefined)?.title||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),title:event.target.value}} as PortfolioRelease['content']})}/></label><label><span>Button text</span><input value={String((record.contact as Record<string,unknown>|undefined)?.buttonLabel||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),buttonLabel:event.target.value}} as PortfolioRelease['content']})}/></label></div><label><span>Paragraph</span><textarea rows={4} value={String((record.contact as Record<string,unknown>|undefined)?.description||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),description:event.target.value}} as PortfolioRelease['content']})}/></label></div>}
+        {section==='Skills'&&<Field label="Toolkit note"><Textarea value={String(record.familiarityNote||'')} onChange={(event)=>update({...draft,content:{...draft.content,familiarityNote:event.target.value} as PortfolioRelease['content']})}/></Field>}
+        {section==='Contact'&&<div className="cms-form cms-contact-copy"><div className="cms-form-grid"><Field label="Heading"><Input value={String((record.contact as Record<string,unknown>|undefined)?.title||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),title:event.target.value}} as PortfolioRelease['content']})}/></Field><Field label="Button text"><Input value={String((record.contact as Record<string,unknown>|undefined)?.buttonLabel||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),buttonLabel:event.target.value}} as PortfolioRelease['content']})}/></Field></div><Field label="Paragraph"><Textarea value={String((record.contact as Record<string,unknown>|undefined)?.description||'')} onChange={(event)=>update({...draft,content:{...draft.content,contact:{...(record.contact as object),description:event.target.value}} as PortfolioRelease['content']})}/></Field></div>}
         <RepeaterField title={section} items={items} onChange={change} createItem={createItem} primaryField={{key:section==='Stats'?'label':section==='Timeline'?'title':section==='Tools'?'name':section==='Workflow'?'label':section==='Terminal'?'command':section==='Contact'?'label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'title':'name',label:section==='Stats'?'stat label':section==='Timeline'?'milestone title':section==='Tools'?'tool name':section==='Workflow'?'step label':section==='Terminal'?'command':section==='Contact'?'contact label':section==='Experience'?'role':section==='Education'?'degree':section==='Skills'?'category title':'certification name'}} renderItem={renderItem} itemLabel={itemLabel} emptyTitle={`No ${itemLabel.toLowerCase()}s yet`} emptyDescription={emptyDescriptions[section]} showVisibility={section === 'Tools' || section === 'Workflow'} getSummary={getSummary} />
         <AdvancedJson title={section} value={advancedValue} onApply={(value) => section==='Skills' ? (Array.isArray(value)&&change(value as RepeatRow[])) : update({ ...draft, content: { ...draft.content, [section.toLowerCase()]: value } } as PortfolioRelease)} />
       </div>
@@ -258,17 +249,17 @@ export function HeroEditor({ draft, update }: { draft: PortfolioRelease; update:
       <form className="cms-form" onSubmit={(event) => event.preventDefault()} onChange={() => void form.handleSubmit(sync)()}>
         {!parsed.success && <p className="cms-warning">Existing Hero data was malformed; safe defaults are shown.</p>}
         <div className="cms-form-grid">
-          <label><span>Eyebrow <b>*</b></span><input {...form.register('eyebrow')} /><small className="admin-error">{form.formState.errors.eyebrow?.message}</small></label>
-          <label><span>Layout</span><select {...form.register('layout')}><option value="split">Split</option><option value="centered">Centered</option><option value="terminal">Terminal</option><option value="minimal">Minimal</option></select></label>
+          <Field label="Eyebrow" required error={form.formState.errors.eyebrow?.message}><Input {...form.register('eyebrow')} /></Field>
+          <Field label="Layout"><Select {...form.register('layout')}><option value="split">Split</option><option value="centered">Centered</option><option value="terminal">Terminal</option><option value="minimal">Minimal</option></Select></Field>
         </div>
-        <label><span>Heading <b>*</b></span><input {...form.register('heading')} /><small className="admin-error">{form.formState.errors.heading?.message}</small></label>
-        <label><span>Description <b>*</b></span><textarea rows={5} maxLength={2000} {...form.register('description')} /><small className="cms-character-count">{form.watch('description')?.length ?? 0}/2000</small></label>
-        <label><span>Supporting text</span><textarea rows={4} maxLength={2000} {...form.register('supporting')} /><small className="cms-character-count">{form.watch('supporting')?.length ?? 0}/2000</small></label>
+        <Field label="Heading" required error={form.formState.errors.heading?.message}><Input {...form.register('heading')} /></Field>
+        <Field label="Description" required helperText={`${form.watch('description')?.length ?? 0}/2000 characters`}><Textarea maxLength={2000} {...form.register('description')} /></Field>
+        <Field label="Supporting text" helperText={`${form.watch('supporting')?.length ?? 0}/2000 characters`}><Textarea maxLength={2000} {...form.register('supporting')} /></Field>
         <div className="cms-form-grid">
-          <label><span>Primary CTA label</span><input {...form.register('primaryCtaLabel')} /></label>
-          <label><span>Primary CTA link</span><input type="url" {...form.register('primaryCtaLink')} /><small className="admin-error">{form.formState.errors.primaryCtaLink?.message}</small></label>
-          <label><span>Secondary CTA label</span><input {...form.register('secondaryCtaLabel')} /></label>
-          <label><span>Secondary CTA link</span><input type="url" {...form.register('secondaryCtaLink')} /><small className="admin-error">{form.formState.errors.secondaryCtaLink?.message}</small></label>
+          <Field label="Primary CTA label"><Input {...form.register('primaryCtaLabel')} /></Field>
+          <Field label="Primary CTA link" error={form.formState.errors.primaryCtaLink?.message}><Input type="url" {...form.register('primaryCtaLink')} /></Field>
+          <Field label="Secondary CTA label"><Input {...form.register('secondaryCtaLabel')} /></Field>
+          <Field label="Secondary CTA link" error={form.formState.errors.secondaryCtaLink?.message}><Input type="url" {...form.register('secondaryCtaLink')} /></Field>
         </div>
         <ImageUpload
           label="Hero image"
